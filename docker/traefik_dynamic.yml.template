@@ -1,0 +1,32 @@
+http:
+  middlewares:
+    secure-headers:
+      headers:
+        sslRedirect: false
+        contentTypeNosniff: true
+        browserXssFilter: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        frameDeny: true
+        contentSecurityPolicy: "frame-ancestors 'none'"
+        customResponseHeaders:
+          X-Powered-By: ""
+          Server: ""
+
+    setup-whitelist:
+      ipAllowList:
+        sourceRange:
+          - "185.43.4.62/32"
+        ipStrategy:
+          depth: 1
+
+    admin-rate-limit:
+      rateLimit:
+        average: 30
+        burst: 20
+        period: 1m
+
+    webhook-rate-limit:
+      rateLimit:
+        average: 100
+        burst: 50
+        period: 1m
