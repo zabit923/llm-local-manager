@@ -5,7 +5,8 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from src.domain.models.base import Base
+# Импорт пакета регистрирует все модели в Base.metadata до autogenerate.
+from src.domain import models as domain_models
 from src.entrypoint.config.build import settings
 
 from alembic import context
@@ -23,7 +24,7 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-target_metadata = Base.metadata
+target_metadata = domain_models.Base.metadata
 
 section = config.config_ini_section
 config.set_main_option("sqlalchemy.url", str(settings.db.url).replace("%", "%%"))
