@@ -78,6 +78,21 @@ class AgentLog:
             quantity,
         )
 
+    def reply(self, session_id: str, stage: str, text: str) -> None:
+        self._logger.debug(
+            "Agent reply generated: session=%s stage=%s text=%r",
+            session_id,
+            stage,
+            text,
+        )
+
+    def model_response(self, operation: str, text: str) -> None:
+        self._logger.debug(
+            "Qwen model response: operation=%s text=%r",
+            operation,
+            text,
+        )
+
 
 class SocketLog:
     """Structured log messages for the agent WebSocket."""

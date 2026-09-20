@@ -41,6 +41,15 @@ class CatalogMatcher:
         return SequenceMatcher(None, text, name).ratio()
 
     @staticmethod
+    def _has_common_fragment(text: str, name: str) -> bool:
+        match = SequenceMatcher(
+            None,
+            text.lower(),
+            name.lower(),
+        ).find_longest_match(0, len(text), 0, len(name))
+        return match.size >= 3
+
+    @staticmethod
     def _stem_words(value: str) -> set[str]:
         result = set()
         for word in re.findall(r"[а-яёa-z]+", value.lower()):
@@ -74,7 +83,11 @@ class CatalogMatcher:
             key=lambda pair: self._similar(text, pair[0].name),
             reverse=True,
         )
-        if ranked and self._similar(text, ranked[0][0].name) >= 0.38:
+        if (
+            ranked
+            and self._similar(text, ranked[0][0].name) >= 0.38
+            and self._has_common_fragment(text, ranked[0][0].name)
+        ):
             return CatalogMatch(*ranked[0])
         spoken_words = self._stem_words(text)
         token_ranked = sorted(
@@ -95,9 +108,17 @@ class CatalogMatcher:
         if (
             ranked_unavailable
             and self._similar(text, ranked_unavailable[0][0].name) >= 0.45
+            and self._has_common_fragment(
+                text,
+                ranked_unavailable[0][0].name,
+            )
         ):
             return CatalogMatch(ranked_unavailable[0][0], "unavailable")
         return None
+
+    async def available_names(self) -> list[str]:
+        candidates = await self._candidates(True)
+        return [item.name for item, _ in candidates]
 
     @staticmethod
     def to_order_item(match: CatalogMatch, quantity: int) -> OrderItemCreate:
