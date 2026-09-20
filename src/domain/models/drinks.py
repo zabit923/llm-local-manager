@@ -18,7 +18,9 @@ class Drink(Base, UUIDPkMixin, TimestampMixin):
 
     __table_args__ = (
         CheckConstraint("price_minor >= 0", name="price_minor_non_negative"),
-        CheckConstraint("volume_ml IS NULL OR volume_ml > 0", name="volume_positive"),
+        CheckConstraint(
+            "volume_ml IS NULL OR volume_ml > 0", name="volume_positive"
+        ),
     )
 
     name: Mapped[str] = mapped_column(String(120), nullable=False, index=True)

@@ -2,13 +2,24 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, Enum as SqlEnum, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    CheckConstraint,
+    Enum as SqlEnum,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from uuid6 import UUID
 
 from src.domain.models.base import Base
-from src.domain.models.choises.enum import DeliveryType, OrderStatus, PaymentMethod
+from src.domain.models.choises.enum import (
+    DeliveryType,
+    OrderStatus,
+    PaymentMethod,
+)
 from src.domain.models.mixins.id_int_pk import UUIDPkMixin
 from src.domain.models.mixins.timestamp import TimestampMixin
 
@@ -26,7 +37,9 @@ class Order(Base, UUIDPkMixin, TimestampMixin):
         default=OrderStatus.pending,
         server_default=OrderStatus.pending.value,
     )
-    customer_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    customer_name: Mapped[str | None] = mapped_column(
+        String(120), nullable=True
+    )
     branch: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -62,7 +75,9 @@ class OrderItem(Base, UUIDPkMixin, TimestampMixin):
 
     __table_args__ = (
         CheckConstraint("quantity > 0", name="quantity_positive"),
-        CheckConstraint("unit_price_minor >= 0", name="unit_price_minor_non_negative"),
+        CheckConstraint(
+            "unit_price_minor >= 0", name="unit_price_minor_non_negative"
+        ),
         CheckConstraint(
             "(dish_id IS NOT NULL AND drink_id IS NULL) "
             "OR (dish_id IS NULL AND drink_id IS NOT NULL)",

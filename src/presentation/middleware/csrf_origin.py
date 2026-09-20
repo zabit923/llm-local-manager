@@ -37,7 +37,9 @@ from starlette.responses import Response
 
 # Mutating HTTP-методы. Только они проверяются — GET/HEAD/OPTIONS
 # не могут вызвать побочный эффект в корректно спроектированном API.
-_MUTATING_METHODS: frozenset[str] = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+_MUTATING_METHODS: frozenset[str] = frozenset(
+    {"POST", "PUT", "PATCH", "DELETE"}
+)
 
 
 class OriginCheckMiddleware(BaseHTTPMiddleware):
@@ -50,7 +52,9 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
         # Pre-compute referer-prefixes для каждого route. Каждый элемент:
         # (path_prefix, allowed_origins, referer_prefix_tuple).
         # Pre-compute чтобы на горячем пути не было work'а на каждый запрос.
-        self._routes: tuple[tuple[str, frozenset[str], tuple[str, ...]], ...] = tuple(
+        self._routes: tuple[
+            tuple[str, frozenset[str], tuple[str, ...]], ...
+        ] = tuple(
             (
                 path_prefix,
                 allowed,

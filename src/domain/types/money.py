@@ -19,7 +19,8 @@ class MinorAmount(BaseValueObject):
     def _validate(self) -> None:
         if not isinstance(self.value, int):
             raise TypeError(
-                f"MinorAmount.value must be int, got {type(self.value).__name__}"
+                "MinorAmount.value must be int, got "
+                f"{type(self.value).__name__}"
             )
         if self.value < 0:
             raise ValueError(
@@ -115,7 +116,5 @@ class MinorAmount(BaseValueObject):
         Единственная точка конвертации Money → MinorAmount в use_case.
         Пример: Decimal("100.50") → MinorAmount(10050)
         """
-        result = int(
-            (amount * 100).to_integral_value(rounding=ROUND_HALF_EVEN)
-        )
+        result = int((amount * 100).to_integral_value(rounding=ROUND_HALF_EVEN))
         return cls(result)

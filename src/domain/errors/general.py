@@ -23,7 +23,10 @@ class GeneralCustomError(ApplicationError):
 
     @property
     def message(self):
-        log_text = f":=GCE| Model={self.model_name}, id={self.model_id}, text={self.text}, error={self.error}"
+        log_text = (
+            f":=GCE| Model={self.model_name}, id={self.model_id}, "
+            f"text={self.text}, error={self.error}"
+        )
         logger.debug(log_text)
         if self.log_warn:
             logger.warning(self.log_warn)

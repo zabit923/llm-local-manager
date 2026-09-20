@@ -6,7 +6,9 @@ from src.domain.models.choises.enum import OrderStatus
 from src.domain.models.order import Order, OrderItem
 from src.domain.ports.db.repositories.dish_repository import DishRepository
 from src.domain.ports.db.repositories.drink_repository import DrinkRepository
-from src.domain.ports.db.repositories.order_item_repository import OrderItemRepository
+from src.domain.ports.db.repositories.order_item_repository import (
+    OrderItemRepository,
+)
 from src.domain.ports.db.repositories.order_repository import OrderRepository
 
 
@@ -25,15 +27,21 @@ class CartService:
         self._dishes = dish_repository
         self._drinks = drink_repository
 
-    async def add_dish(self, order_id: UUID, dish_id: UUID, quantity: int) -> Order:
+    async def add_dish(
+        self, order_id: UUID, dish_id: UUID, quantity: int
+    ) -> Order:
         order = await self._get_editable_order(order_id)
         dish = await self._dishes.get_by_id(dish_id)
         if dish is None:
             raise CustomDoesNotExist(class_name="Dish", model_id=dish_id)
         if not dish.is_available:
-            raise GeneralCustomError(text="Dish is unavailable", model_id=dish_id)
+            raise GeneralCustomError(
+                text="Dish is unavailable", model_id=dish_id
+            )
 
-        item = next((item for item in order.items if item.dish_id == dish_id), None)
+        item = next(
+            (item for item in order.items if item.dish_id == dish_id), None
+        )
         if item is None:
             item = OrderItem(
                 dish_id=dish.id,
@@ -48,15 +56,21 @@ class CartService:
             await self._items.update(item)
         return await self._update_total(order)
 
-    async def add_drink(self, order_id: UUID, drink_id: UUID, quantity: int) -> Order:
+    async def add_drink(
+        self, order_id: UUID, drink_id: UUID, quantity: int
+    ) -> Order:
         order = await self._get_editable_order(order_id)
         drink = await self._drinks.get_by_id(drink_id)
         if drink is None:
             raise CustomDoesNotExist(class_name="Drink", model_id=drink_id)
         if not drink.is_available:
-            raise GeneralCustomError(text="Drink is unavailable", model_id=drink_id)
+            raise GeneralCustomError(
+                text="Drink is unavailable", model_id=drink_id
+            )
 
-        item = next((item for item in order.items if item.drink_id == drink_id), None)
+        item = next(
+            (item for item in order.items if item.drink_id == drink_id), None
+        )
         if item is None:
             item = OrderItem(
                 drink_id=drink.id,

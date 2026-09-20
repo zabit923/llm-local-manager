@@ -12,7 +12,9 @@ from src.presentation.middleware.path_aware_cors import (
     CorsRouteConfig,
     PathAwareCorsMiddleware,
 )
-from src.presentation.middleware.security_headers import SecurityHeadersMiddleware
+from src.presentation.middleware.security_headers import (
+    SecurityHeadersMiddleware,
+)
 from src.presentation.routers.http import router as http_router
 from src.entrypoint.logging.setup import setup_logging
 from src.entrypoint.config.setup_db import app_db

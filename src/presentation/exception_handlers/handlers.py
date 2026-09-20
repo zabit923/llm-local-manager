@@ -139,7 +139,7 @@ async def database_error_handler(
     Соединение с Postgres/драйвером сломано.
     OperationalError — DBAPIError, FastAPI сматчит этот handler по MRO.
     Прикладные IntegrityError здесь НЕ ловим — они уже обёрнуты в
-    GeneralCustomError на уровне gateway'ев и пойдут через application_error_handler.
+    GeneralCustomError на уровне gateway'ев пойдут в application_error_handler.
     """
     if not isinstance(exc, OperationalError):
         # Не наш случай — пробрасываем дальше в fallback 500.

@@ -2,7 +2,11 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from src.domain.models.choises.enum import DeliveryType, OrderStatus, PaymentMethod
+from src.domain.models.choises.enum import (
+    DeliveryType,
+    OrderStatus,
+    PaymentMethod,
+)
 
 
 class OrderItemCreate(BaseModel):
@@ -26,6 +30,7 @@ class OrderCreate(BaseModel):
     delivery_type: DeliveryType = DeliveryType.delivery
     address: str | None = None
     payment_method: PaymentMethod = PaymentMethod.cash
+
 
 class OrderItemQuantityUpdate(BaseModel):
     quantity: int = Field(gt=0)

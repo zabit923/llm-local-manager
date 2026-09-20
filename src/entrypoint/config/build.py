@@ -34,7 +34,8 @@ class SettingsBuilder:
         if len(raw) == 32:
             return raw
         raise ValueError(
-            f"Encryption key '{secret_name}' must be 32 raw bytes or 64 hex chars, "
+            f"Encryption key '{secret_name}' must be 32 raw bytes or "
+            "64 hex chars, "
             f"got {len(raw)} bytes"
         )
 
@@ -118,7 +119,8 @@ class SettingsBuilder:
     #     is_local = app_env == AppEnv.local
     #     return PortalAuthConfig(
     #         cookie_session_name=(
-    #             "payolin_portal_session" if is_local else "__Host-portal_session"
+    #             "payolin_portal_session" if is_local
+    #             else "__Host-portal_session"
     #         ),
     #         cookie_csrf_name=(
     #             "payolin_portal_csrf" if is_local else "__Host-portal_csrf"

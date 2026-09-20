@@ -3,7 +3,12 @@ from uuid import UUID
 from dishka.integrations.fastapi import DishkaRoute, FromDishka
 from fastapi import APIRouter, Response, status
 
-from src.application.schemas.dishes import DishCreate, DishDetail, DishList, DishUpdate
+from src.application.schemas.dishes import (
+    DishCreate,
+    DishDetail,
+    DishList,
+    DishUpdate,
+)
 from src.application.use_cases.dishes import DishUseCases
 
 
@@ -14,7 +19,9 @@ router = APIRouter(
 )
 
 
-@router.post("/", response_model=DishDetail, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=DishDetail, status_code=status.HTTP_201_CREATED
+)
 async def create_dish(
     data: DishCreate,
     use_cases: FromDishka[DishUseCases],

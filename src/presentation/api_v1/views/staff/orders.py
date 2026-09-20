@@ -19,7 +19,9 @@ router = APIRouter(
 )
 
 
-@router.post("/", response_model=OrderDetail, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=OrderDetail, status_code=status.HTTP_201_CREATED
+)
 async def create_order(
     data: OrderCreate,
     use_cases: FromDishka[OrderUseCases],
@@ -36,8 +38,13 @@ async def get_order(
 
 
 @router.get("/", response_model=list[OrderDetail])
-async def list_orders(use_cases: FromDishka[OrderUseCases]) -> list[OrderDetail]:
-    return [OrderDetail.model_validate(order) for order in await use_cases.list_all()]
+async def list_orders(
+    use_cases: FromDishka[OrderUseCases],
+) -> list[OrderDetail]:
+    return [
+        OrderDetail.model_validate(order)
+        for order in await use_cases.list_all()
+    ]
 
 
 @router.post("/{order_id}/dishes/{dish_id}", response_model=OrderDetail)
@@ -82,7 +89,9 @@ async def remove_item(
     item_id: UUID,
     use_cases: FromDishka[OrderUseCases],
 ) -> OrderDetail:
-    return OrderDetail.model_validate(await use_cases.remove_item(order_id, item_id))
+    return OrderDetail.model_validate(
+        await use_cases.remove_item(order_id, item_id)
+    )
 
 
 @router.post("/{order_id}/confirm", response_model=OrderDetail)

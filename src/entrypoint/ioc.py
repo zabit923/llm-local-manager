@@ -19,7 +19,9 @@ from taskiq import AsyncBroker
 from src.domain.ports.db.commiter import Commiter
 from src.domain.ports.db.repositories.dish_repository import DishRepository
 from src.domain.ports.db.repositories.drink_repository import DrinkRepository
-from src.domain.ports.db.repositories.order_item_repository import OrderItemRepository
+from src.domain.ports.db.repositories.order_item_repository import (
+    OrderItemRepository,
+)
 from src.domain.ports.db.repositories.order_repository import OrderRepository
 from src.domain.ports.encryption.signing_secret import SigningSecretEncryption
 from src.domain.ports.redis.gateway import RedisGateway
@@ -27,7 +29,7 @@ from src.domain.types.redis import BrokerRedis, CacheRedis
 
 # --- Application ---
 from src.application.services.cart import CartService
-from src.application.services.order_agent import OrderAgent
+from src.application.agent.service import OrderAgent
 from src.application.use_cases.task import TaskManager
 from src.application.use_cases.dishes import DishUseCases
 from src.application.use_cases.drinks import DrinkUseCases
@@ -40,8 +42,8 @@ from src.infrastructure.implementation.db.repositories.dish_repository import (
 from src.infrastructure.implementation.db.repositories.drink_repository import (
     SqlAlchemyDrinkRepository,
 )
-from src.infrastructure.implementation.db.repositories.order_item_repository import (
-    SqlAlchemyOrderItemRepository,
+from src.infrastructure.implementation.db.repositories import (
+    order_item_repository,
 )
 from src.infrastructure.implementation.db.repositories.order_repository import (
     SqlAlchemyOrderRepository,
@@ -52,10 +54,13 @@ from src.entrypoint.config.build import Settings, settings
 from src.entrypoint.config.settings import AppEnv
 from src.entrypoint.config.setup_db import app_db
 from src.entrypoint.config.task_setup import create_broker
-from src.infrastructure.implementation.encryption.signing_secret_aes_gcm import (
-    AesGcmSecretEncryptionImpl,
-)
+from src.infrastructure.implementation.encryption import signing_secret_aes_gcm
 from src.infrastructure.implementation.redis.gateway import RedisGatewayImpl
+
+SqlAlchemyOrderItemRepository = (
+    order_item_repository.SqlAlchemyOrderItemRepository
+)
+AesGcmSecretEncryptionImpl = signing_secret_aes_gcm.AesGcmSecretEncryptionImpl
 
 
 # =============================================================================
@@ -397,6 +402,7 @@ class ApplicationProvider(Provider):
     drink_use_cases = provide(DrinkUseCases, scope=Scope.REQUEST)
     order_use_cases = provide(OrderUseCases, scope=Scope.REQUEST)
     order_agent = provide(OrderAgent, scope=Scope.REQUEST)
+
 
 # =============================================================================
 # Container setup

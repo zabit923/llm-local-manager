@@ -19,4 +19,6 @@ class TaskManager:
                 session_id=session_id,
             )
         else:
-            raise RuntimeError("confirm_payout_webhook_task not registered in broker")
+            raise RuntimeError(
+                "confirm_payout_webhook_task not registered in broker"
+            )

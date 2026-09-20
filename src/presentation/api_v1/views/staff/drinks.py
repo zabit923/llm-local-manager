@@ -3,7 +3,12 @@ from uuid import UUID
 from dishka.integrations.fastapi import DishkaRoute, FromDishka
 from fastapi import APIRouter, Response, status
 
-from src.application.schemas.drinks import DrinkCreate, DrinkDetail, DrinkList, DrinkUpdate
+from src.application.schemas.drinks import (
+    DrinkCreate,
+    DrinkDetail,
+    DrinkList,
+    DrinkUpdate,
+)
 from src.application.use_cases.drinks import DrinkUseCases
 
 
@@ -14,7 +19,9 @@ router = APIRouter(
 )
 
 
-@router.post("/", response_model=DrinkDetail, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=DrinkDetail, status_code=status.HTTP_201_CREATED
+)
 async def create_drink(
     data: DrinkCreate,
     use_cases: FromDishka[DrinkUseCases],
@@ -25,7 +32,9 @@ async def create_drink(
 @router.get("/", response_model=DrinkList)
 async def list_drinks(use_cases: FromDishka[DrinkUseCases]) -> DrinkList:
     drinks = await use_cases.list()
-    return DrinkList(drinks=[DrinkDetail.model_validate(drink) for drink in drinks])
+    return DrinkList(
+        drinks=[DrinkDetail.model_validate(drink) for drink in drinks]
+    )
 
 
 @router.get("/{drink_id}", response_model=DrinkDetail)

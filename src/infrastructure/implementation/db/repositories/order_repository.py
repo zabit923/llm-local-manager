@@ -30,20 +30,18 @@ class SqlAlchemyOrderRepository(OrderRepository):
         return order
 
     async def get_by_id(self, order_id: UUID) -> Order | None:
-        statement = self._with_items(
-            select(Order).where(Order.id == order_id)
-        )
+        statement = self._with_items(select(Order).where(Order.id == order_id))
         return await self._session.scalar(statement)
 
     async def get_by_id_for_update(self, order_id: UUID) -> Order | None:
         statement = self._with_items(
-            select(Order)
-            .where(Order.id == order_id)
-            .with_for_update()
+            select(Order).where(Order.id == order_id).with_for_update()
         )
         return await self._session.scalar(statement)
 
     async def list_all(self) -> list[Order]:
-        statement = self._with_items(select(Order).order_by(Order.created_at.desc()))
+        statement = self._with_items(
+            select(Order).order_by(Order.created_at.desc())
+        )
         result = await self._session.scalars(statement)
         return list(result)

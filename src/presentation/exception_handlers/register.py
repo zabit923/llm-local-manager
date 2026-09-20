@@ -16,12 +16,13 @@ from src.presentation.exception_handlers.handlers import (
     validation_error_handler,
 )
 
+
 def register_exception_handlers(app: FastAPI) -> None:
     """
     Регистрация глобальных обработчиков исключений.
 
     Порядок регистрации важен только для перекрывающихся типов: FastAPI выбирает
-    самый специфичный из зарегистрированных по MRO. Поскольку InfrastructureError
+    самый специфичный из зарегистрированных по MRO. InfrastructureError
     наследник ApplicationError — handler для InfrastructureError должен быть
     зарегистрирован, иначе все его потомки уйдут в application_error_handler.
 
@@ -33,16 +34,30 @@ def register_exception_handlers(app: FastAPI) -> None:
     pyright/mypy формально ругаются на ковариантность.
     """
     # Прикладные ошибки
-    app.add_exception_handler(ApplicationError, application_error_handler)  # type: ignore[arg-type]
-    app.add_exception_handler(InfrastructureError, infrastructure_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(
+        ApplicationError, application_error_handler
+    )  # type: ignore[arg-type]
+    app.add_exception_handler(
+        InfrastructureError, infrastructure_error_handler
+    )  # type: ignore[arg-type]
 
     # Pydantic валидация
-    app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(
+        RequestValidationError, validation_error_handler
+    )  # type: ignore[arg-type]
 
     # Native infrastructure
-    app.add_exception_handler(AiohttpClientError, aiohttp_error_handler)  # type: ignore[arg-type]
-    app.add_exception_handler(RedisError, redis_error_handler)  # type: ignore[arg-type]
-    app.add_exception_handler(DBAPIError, database_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(
+        AiohttpClientError, aiohttp_error_handler
+    )  # type: ignore[arg-type]
+    app.add_exception_handler(
+        RedisError, redis_error_handler
+    )  # type: ignore[arg-type]
+    app.add_exception_handler(
+        DBAPIError, database_error_handler
+    )  # type: ignore[arg-type]
 
     # Catch-all
-    app.add_exception_handler(Exception, unhandled_error_handler) # type: ignore[arg-type]
+    app.add_exception_handler(
+        Exception, unhandled_error_handler
+    )  # type: ignore[arg-type]

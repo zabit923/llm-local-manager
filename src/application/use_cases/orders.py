@@ -36,7 +36,9 @@ class OrderUseCases:
             if item.dish_id is not None:
                 await self._cart.add_dish(order.id, item.dish_id, item.quantity)
             elif item.drink_id is not None:
-                await self._cart.add_drink(order.id, item.drink_id, item.quantity)
+                await self._cart.add_drink(
+                    order.id, item.drink_id, item.quantity
+                )
 
         await self._commiter.commit()
         return await self.get(order.id)
@@ -50,12 +52,16 @@ class OrderUseCases:
     async def list_all(self) -> list[Order]:
         return await self._repository.list_all()
 
-    async def add_dish(self, order_id: UUID, dish_id: UUID, quantity: int) -> Order:
+    async def add_dish(
+        self, order_id: UUID, dish_id: UUID, quantity: int
+    ) -> Order:
         order = await self._cart.add_dish(order_id, dish_id, quantity)
         await self._commiter.commit()
         return order
 
-    async def add_drink(self, order_id: UUID, drink_id: UUID, quantity: int) -> Order:
+    async def add_drink(
+        self, order_id: UUID, drink_id: UUID, quantity: int
+    ) -> Order:
         order = await self._cart.add_drink(order_id, drink_id, quantity)
         await self._commiter.commit()
         return order
@@ -66,7 +72,9 @@ class OrderUseCases:
         item_id: UUID,
         data: OrderItemQuantityUpdate,
     ) -> Order:
-        order = await self._cart.change_quantity(order_id, item_id, data.quantity)
+        order = await self._cart.change_quantity(
+            order_id, item_id, data.quantity
+        )
         await self._commiter.commit()
         return order
 
@@ -80,9 +88,13 @@ class OrderUseCases:
         if order is None:
             raise CustomDoesNotExist(class_name="Order", model_id=order_id)
         if order.status is not OrderStatus.pending:
-            raise GeneralCustomError(text="Order is not pending", model_id=order_id)
+            raise GeneralCustomError(
+                text="Order is not pending", model_id=order_id
+            )
         if not order.items:
-            raise GeneralCustomError(text="Cannot confirm an empty order", model_id=order_id)
+            raise GeneralCustomError(
+                text="Cannot confirm an empty order", model_id=order_id
+            )
         if order.delivery_type is DeliveryType.delivery and not order.address:
             raise GeneralCustomError(
                 text="Delivery order requires an address", model_id=order_id
