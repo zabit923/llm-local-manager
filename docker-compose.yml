@@ -22,7 +22,7 @@ services:
     command: >
       sh -c "uvicorn src.entrypoint.main:create_app --host 0.0.0.0 --port 8888"
     healthcheck:
-      test: curl -f http://localhost:8888/api/v1/healthcheck/ || exit 1
+      test: curl -f http://localhost:8888/api/v1/pub/healthcheck/ || exit 1
       interval: 20s
       retries: 3
       start_period: 30s
@@ -37,7 +37,7 @@ services:
     <<: *fastapi-common
     container_name: taskiq_scheduler
     command: >
-      sh -c "taskiq scheduler src.config.taskiq:create_taskiq_scheduler src.tasks"
+      sh -c "taskiq scheduler src.entrypoint.config.taskiq:create_taskiq_scheduler src.application.tasks"
 
   db_postgres:
     container_name: db_postgres

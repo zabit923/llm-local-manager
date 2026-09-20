@@ -17,14 +17,35 @@ from taskiq import AsyncBroker
 
 # --- Domain ports ---
 from src.domain.ports.db.commiter import Commiter
+from src.domain.ports.db.repositories.dish_repository import DishRepository
+from src.domain.ports.db.repositories.drink_repository import DrinkRepository
+from src.domain.ports.db.repositories.order_item_repository import OrderItemRepository
+from src.domain.ports.db.repositories.order_repository import OrderRepository
 from src.domain.ports.encryption.signing_secret import SigningSecretEncryption
 from src.domain.ports.redis.gateway import RedisGateway
 from src.domain.types.redis import BrokerRedis, CacheRedis
 
-# --- Infrastructure: adapters ---
+# --- Application ---
+from src.application.services.cart import CartService
+from src.application.services.order_agent import OrderAgent
 from src.application.use_cases.task import TaskManager
+from src.application.use_cases.dishes import DishUseCases
+from src.application.use_cases.drinks import DrinkUseCases
+from src.application.use_cases.orders import OrderUseCases
 from src.application.tasks.register import register_tasks
 from src.infrastructure.implementation.db.commiter import CommiterImpl
+from src.infrastructure.implementation.db.repositories.dish_repository import (
+    SqlAlchemyDishRepository,
+)
+from src.infrastructure.implementation.db.repositories.drink_repository import (
+    SqlAlchemyDrinkRepository,
+)
+from src.infrastructure.implementation.db.repositories.order_item_repository import (
+    SqlAlchemyOrderItemRepository,
+)
+from src.infrastructure.implementation.db.repositories.order_repository import (
+    SqlAlchemyOrderRepository,
+)
 
 # --- Entrypoint ---
 from src.entrypoint.config.build import Settings, settings
@@ -343,6 +364,41 @@ class TaskProvider(Provider):
 
 
 # =============================================================================
+# Repositories setup
+# =============================================================================
+
+
+class RepositoryProvider(Provider):
+    dish_repository = provide(
+        SqlAlchemyDishRepository,
+        scope=Scope.REQUEST,
+        provides=DishRepository,
+    )
+    drink_repository = provide(
+        SqlAlchemyDrinkRepository,
+        scope=Scope.REQUEST,
+        provides=DrinkRepository,
+    )
+    order_item_repository = provide(
+        SqlAlchemyOrderItemRepository,
+        scope=Scope.REQUEST,
+        provides=OrderItemRepository,
+    )
+    order_repository = provide(
+        SqlAlchemyOrderRepository,
+        scope=Scope.REQUEST,
+        provides=OrderRepository,
+    )
+
+
+class ApplicationProvider(Provider):
+    cart_service = provide(CartService, scope=Scope.REQUEST)
+    dish_use_cases = provide(DishUseCases, scope=Scope.REQUEST)
+    drink_use_cases = provide(DrinkUseCases, scope=Scope.REQUEST)
+    order_use_cases = provide(OrderUseCases, scope=Scope.REQUEST)
+    order_agent = provide(OrderAgent, scope=Scope.REQUEST)
+
+# =============================================================================
 # Container setup
 # =============================================================================
 
@@ -357,5 +413,7 @@ def setup_di() -> AsyncContainer:
         TaskiqProvider(),
         EncryptionProvider(),
         TaskProvider(),
+        RepositoryProvider(),
+        ApplicationProvider(),
         context={Settings: settings},
     )

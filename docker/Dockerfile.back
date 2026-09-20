@@ -1,23 +1,6 @@
-# ─── Stage 1: builder ────────────────────────────────────────────────────────
-FROM python:3.12-slim AS builder
-
-ENV POETRY_VERSION=1.8.5 \
-  POETRY_VIRTUALENVS_IN_PROJECT=true \
-  POETRY_NO_INTERACTION=1 \
-  PIP_NO_CACHE_DIR=off \
-  PIP_DISABLE_PIP_VERSION_CHECK=on
-
-RUN pip install "poetry==$POETRY_VERSION"
-
-WORKDIR /payolin
-
-ENV PATH="/payolin/.venv/bin:$PATH"
-
-COPY poetry.lock pyproject.toml ./
-
-RUN poetry install --only main --no-root
-
-# ─── Stage 2: runtime ────────────────────────────────────────────────────────
+# The API container intentionally does not install vLLM/CUDA. vLLM is used by
+# the separate local voice process; keeping it out makes this web container
+# small enough to build and start quickly.
 FROM python:3.12-slim AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
@@ -26,7 +9,11 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /payolin
 
-COPY --from=builder /payolin/.venv .venv
+RUN python -m venv /payolin/.venv \
+  && /payolin/.venv/bin/pip install --no-cache-dir \
+    aiohttp alembic asyncpg bcrypt cryptography dishka fastapi httpx \
+    msgspec orjson pydantic pydantic-settings pyjwt pyotp python-dateutil \
+    pytz redis sqlalchemy taskiq taskiq-redis typer typing-extensions uuid6 uvicorn websockets
 
 COPY . .
 
@@ -36,4 +23,4 @@ USER docker-admin
 
 EXPOSE 8888
 
-CMD ["uvicorn", "src.main:create_app", "--host", "0.0.0.0", "--port", "8888", "--workers", "4"]
+CMD ["uvicorn", "src.entrypoint.main:create_app", "--host", "0.0.0.0", "--port", "8888", "--workers", "4"]

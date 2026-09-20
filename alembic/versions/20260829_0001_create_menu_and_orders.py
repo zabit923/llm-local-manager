@@ -54,7 +54,6 @@ def upgrade() -> None:
         "dishes",
         sa.Column("name", sa.String(length=120), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
-        sa.Column("category", sa.String(length=80), nullable=False),
         sa.Column("price_minor", sa.Integer(), nullable=False),
         sa.Column("is_available", sa.Boolean(), server_default="true", nullable=False),
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
@@ -64,7 +63,6 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id", name=op.f("pk_dishes")),
     )
     op.create_index(op.f("ix_dishes_name"), "dishes", ["name"])
-    op.create_index(op.f("ix_dishes_category"), "dishes", ["category"])
 
     op.create_table(
         "drinks",

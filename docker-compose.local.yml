@@ -3,7 +3,6 @@ x-fastapi-common: &fastapi-common
   build:
     context: .
     dockerfile: docker/Dockerfile.back
-    target: builder
   volumes:
     - .:/payolin
     - venv_data:/payolin/.venv
@@ -18,13 +17,32 @@ x-fastapi-common: &fastapi-common
   restart: always
 
 services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: local_llm_frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "3000:80"
+    networks:
+      - app_network
+    restart: unless-stopped
+
   backend:
     <<: *fastapi-common
     container_name: backend
+    environment:
+      LLM_BASE_URL: http://host.docker.internal:8000/v1
+      LLM_MODEL: Qwen/Qwen3-8B-AWQ
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command: >
-      sh -c "uvicorn src.entrypoint.main:create_app --host 0.0.0.0 --port 8888 --reload"
+      sh -c "alembic upgrade head && uvicorn src.entrypoint.main:create_app --host 0.0.0.0 --port 8888 --reload"
     healthcheck:
-      test: curl -f http://localhost:8888/api/pub/healthcheck/ || exit 1
+      test: curl -f http://localhost:8888/api/v1/pub/healthcheck/ || exit 1
       interval: 20s
       retries: 3
       start_period: 30s

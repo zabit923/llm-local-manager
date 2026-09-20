@@ -1,0 +1,16 @@
+from typing import Protocol
+from uuid import UUID
+
+from src.domain.models.order import OrderItem
+
+
+class OrderItemRepository(Protocol):
+    async def add(self, item: OrderItem) -> OrderItem: ...
+
+    async def update(self, item: OrderItem) -> OrderItem: ...
+
+    async def get_by_id(self, item_id: UUID) -> OrderItem | None: ...
+
+    async def list_by_order_id(self, order_id: UUID) -> list[OrderItem]: ...
+
+    async def delete(self, item: OrderItem) -> None: ...

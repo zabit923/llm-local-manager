@@ -27,7 +27,7 @@ class Order(Base, UUIDPkMixin, TimestampMixin):
         server_default=OrderStatus.pending.value,
     )
     customer_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
-    phone: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    branch: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     delivery_type: Mapped[DeliveryType] = mapped_column(

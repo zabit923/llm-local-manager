@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Гиро — голосовой заказ</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main class="layout">
+    <section class="card assistant">
+      <h1>Заказ в Гиро</h1>
+      <p class="muted">Нажмите кнопку и говорите с менеджером. Если браузер не поддерживает голос, используйте поле текста.</p>
+      <div id="conversation" class="conversation"></div>
+      <div class="controls">
+        <button id="talk" class="primary">Подключиться к звонку</button>
+        <span id="status" class="status">Готов к разговору</span>
+      </div>
+      <form id="text-form" class="text-form">
+        <input id="text" autocomplete="off" placeholder="Например: два острых гироса" />
+        <button>Отправить</button>
+      </form>
+    </section>
+    <section class="card orders">
+      <div class="orders-header"><h2>Заказы</h2><button id="refresh">Обновить</button></div>
+      <div id="orders-list" class="orders-list"><p class="muted">Загрузка…</p></div>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>
