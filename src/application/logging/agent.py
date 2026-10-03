@@ -57,9 +57,16 @@ class AgentLog:
 
     def extraction(self, session_id: str, result: Any) -> None:
         self._logger.debug(
-            "Agent extraction: session=%s result=%s",
+            "Agent model plan: session=%s result=%s",
             session_id,
             result,
+        )
+
+    def actions(self, session_id: str, events: Any) -> None:
+        self._logger.info(
+            "Agent verified actions: session=%s events=%s",
+            session_id,
+            events,
         )
 
     def catalog_match(self, session_id: str, item: str, match: Any) -> None:

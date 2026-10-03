@@ -1,42 +1,22 @@
-from __future__ import annotations
-
-from src.application.agent.constants import BRANCHES
-
-DELIVERY_PROMPT = "Это будет доставка или самовывоз?"
-ADDRESS_PROMPT = "Назовите адрес доставки."
-NO_ORDER_PROMPT = "Хорошо. Что хотите заказать?"
+"""Formatting verified monetary amounts for spoken replies."""
 
 
-def branch_prompt() -> str:
-    return "На какую точку оформить заказ? Доступны: " f"{', '.join(BRANCHES)}."
+def _currency_word(amount: int, forms: tuple[str, str, str]) -> str:
+    if amount % 100 in range(11, 15):
+        return forms[2]
+    digit = amount % 10
+    if digit == 1:
+        return forms[0]
+    if digit in (2, 3, 4):
+        return forms[1]
+    return forms[2]
 
 
-def unavailable_message(name: str) -> str:
-    return (
-        f"К сожалению, «{name}» сейчас нет в наличии. "
-        "Выберите другое блюдо или напиток."
-    )
-
-
-def menu_message(names: list[str]) -> str:
-    return f"В меню сейчас: {', '.join(names)}. Что хотите заказать?"
-
-
-def not_found_message(name: str, names: list[str]) -> str:
-    return (
-        f"К сожалению, «{name}» нет в меню. "
-        f"Могу предложить: {', '.join(names)}."
-    )
-
-
-def item_added_message(name: str, quantity: int) -> str:
-    return f"Записала: {quantity} {name}. На какую точку оформить заказ?"
-
-
-def item_label(name: str, quantity: int) -> str:
-    return f"{quantity} {name}"
-
-
-def order_created_message(total_price_minor: int) -> str:
-    price = total_price_minor / 100
-    return f"Заказ создан. Сумма заказа: {price:.2f} ₽."
+def money_message(total_price_minor: int) -> str:
+    rubles, kopecks = divmod(total_price_minor, 100)
+    ruble_word = _currency_word(rubles, ("рубль", "рубля", "рублей"))
+    result = f"{rubles} {ruble_word}"
+    if kopecks:
+        kopeck_word = _currency_word(kopecks, ("копейка", "копейки", "копеек"))
+        result += f" {kopecks} {kopeck_word}"
+    return result

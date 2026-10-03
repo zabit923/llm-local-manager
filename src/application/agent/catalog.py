@@ -16,6 +16,21 @@ class CatalogMatch:
     kind: str
 
 
+@dataclass(frozen=True)
+class CatalogEntry:
+    sku: str
+    item: object
+    kind: str
+
+    def as_context(self) -> dict[str, object]:
+        return {
+            "sku": self.sku,
+            "name": self.item.name,
+            "price_minor": self.item.price_minor,
+            "available": self.item.is_available,
+        }
+
+
 class QuantityParser:
     @staticmethod
     def parse(text: str) -> int:
@@ -33,21 +48,33 @@ class CatalogMatcher:
         self._dishes = dishes
         self._drinks = drinks
 
-    @staticmethod
-    def _similar(text: str, name: str) -> float:
-        text, name = text.lower(), name.lower()
-        if name in text:
-            return 1.0
-        return SequenceMatcher(None, text, name).ratio()
+    async def entries(self) -> list[CatalogEntry]:
+        dishes = await self._dishes.list()
+        drinks = await self._drinks.list()
+        return [
+            CatalogEntry(f"D{index}", dish, "dish")
+            for index, dish in enumerate(dishes, 1)
+        ] + [
+            CatalogEntry(f"R{index}", drink, "drink")
+            for index, drink in enumerate(drinks, 1)
+        ]
 
     @staticmethod
-    def _has_common_fragment(text: str, name: str) -> bool:
-        match = SequenceMatcher(
-            None,
-            text.lower(),
-            name.lower(),
-        ).find_longest_match(0, len(text), 0, len(name))
-        return match.size >= 3
+    def _score(text: str, name: str) -> float:
+        query = CatalogMatcher._stem_words(text)
+        target = CatalogMatcher._stem_words(name)
+        if not query or not target:
+            return 0.0
+        scores = []
+        for word in target:
+            candidates = [
+                SequenceMatcher(None, word, spoken).ratio()
+                for spoken in query
+                if spoken[:3] == word[:3]
+            ]
+            scores.append(max(candidates, default=0.0))
+        matched = sum(score >= 0.8 for score in scores)
+        return max(scores, default=0.0) + 0.2 * max(0, matched - 1)
 
     @staticmethod
     def _stem_words(value: str) -> set[str]:
@@ -77,44 +104,46 @@ class CatalogMatcher:
         ]
 
     async def find(self, text: str) -> CatalogMatch | None:
-        candidates = await self._candidates(True)
+        available = await self._candidates(True)
+        normal = text.lower()
+        if re.search(r"\b(обычн\w*|классич\w*)\b", normal):
+            if re.search(r"\b(гир\w*|кир\w*|герой|киа|kia)\b", normal):
+                classic = next(
+                    (
+                        item
+                        for item, kind in available
+                        if kind == "dish"
+                        and item.name.lower().startswith("классический гирос")
+                    ),
+                    None,
+                )
+                if classic is not None:
+                    return CatalogMatch(classic, "dish")
         ranked = sorted(
-            candidates,
-            key=lambda pair: self._similar(text, pair[0].name),
+            available,
+            key=lambda pair: self._score(text, pair[0].name),
             reverse=True,
         )
-        if (
-            ranked
-            and self._similar(text, ranked[0][0].name) >= 0.38
-            and self._has_common_fragment(text, ranked[0][0].name)
-        ):
+        if ranked and self._score(text, ranked[0][0].name) >= 0.8:
+            best_score = self._score(text, ranked[0][0].name)
+            if len(ranked) > 1:
+                second_score = self._score(text, ranked[1][0].name)
+                if best_score - second_score < 0.15:
+                    return None
             return CatalogMatch(*ranked[0])
-        spoken_words = self._stem_words(text)
-        token_ranked = sorted(
-            candidates,
-            key=lambda pair: len(spoken_words & self._stem_words(pair[0].name)),
-            reverse=True,
-        )
-        if token_ranked and spoken_words & self._stem_words(
-            token_ranked[0][0].name
-        ):
-            return CatalogMatch(*token_ranked[0])
         unavailable = await self._candidates(False)
-        ranked_unavailable = sorted(
-            unavailable,
-            key=lambda pair: self._similar(text, pair[0].name),
-            reverse=True,
-        )
-        if (
-            ranked_unavailable
-            and self._similar(text, ranked_unavailable[0][0].name) >= 0.45
-            and self._has_common_fragment(
-                text,
-                ranked_unavailable[0][0].name,
-            )
-        ):
-            return CatalogMatch(ranked_unavailable[0][0], "unavailable")
+        for item, _ in unavailable:
+            if self._score(text, item.name) >= 0.8:
+                return CatalogMatch(item, "unavailable")
         return None
+
+    async def suggestions(self, text: str) -> list[str]:
+        candidates = await self._candidates(True)
+        return [
+            item.name
+            for item, _ in candidates
+            if self._score(text, item.name) >= 0.8
+        ]
 
     async def available_names(self) -> list[str]:
         candidates = await self._candidates(True)

@@ -1,36 +1,25 @@
+"""The LLM decides actions and writes replies; it never mutates data."""
+
 from __future__ import annotations
 
 import json
 import os
 import re
-from dataclasses import dataclass
 
 import httpx
 
 from src.application.agent.prompts import (
-    build_order_extraction_prompt,
-    build_order_reply_prompt,
-)
-from src.application.agent.constants import (
-    BRANCHES,
-    STAGE_ASK_ADDRESS,
-    STAGE_ASK_BRANCH,
-    STAGE_ASK_DELIVERY,
-    STAGE_ASK_ORDER,
-    STAGE_CONFIRM,
-    STAGE_ITEM_ADDED,
-    STAGE_UNAVAILABLE,
+    build_planner_messages,
+    build_reply_messages,
 )
 from src.application.logging import agent_log
 
 
-@dataclass(frozen=True)
-class ExtractedOrderItem:
-    name: str
-    quantity: int
+class ModelUnavailable(Exception):
+    """Qwen cannot produce a usable response right now."""
 
 
-class QwenOrderExtractor:
+class QwenAgentModel:
     def __init__(
         self, base_url: str | None = None, model: str | None = None
     ) -> None:
@@ -39,134 +28,76 @@ class QwenOrderExtractor:
         ).rstrip("/")
         self._model = model or os.getenv("LLM_MODEL", "Qwen/Qwen3-8B-AWQ")
 
-    async def reply(
+    async def _chat(
         self,
-        customer_text: str,
-        stage: str,
-        cart: list[str],
-        facts: dict[str, str],
-        fallback: str,
+        messages: list[dict[str, str]],
+        operation: str,
+        temperature: float,
+        max_tokens: int,
     ) -> str:
-        prompt = build_order_reply_prompt(
-            customer_text,
-            stage,
-            cart,
-            facts,
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                response = await client.post(
+                    f"{self._base_url}/chat/completions",
+                    headers={"Authorization": "Bearer local"},
+                    json={
+                        "model": self._model,
+                        "messages": messages,
+                        "chat_template_kwargs": {
+                            "enable_thinking": False,
+                        },
+                        "temperature": temperature,
+                        "max_tokens": max_tokens,
+                    },
+                )
+                response.raise_for_status()
+                content = response.json()["choices"][0]["message"]["content"]
+                if not isinstance(content, str) or not content.strip():
+                    raise ModelUnavailable("empty model response")
+        except (
+            httpx.HTTPError, KeyError, IndexError, TypeError, ValueError
+        ) as exc:
+            raise ModelUnavailable(str(exc)) from exc
+        agent_log.model_response(operation, content)
+        content = re.sub(
+            r"<think>.*?</think>", "", content, flags=re.DOTALL
+        ).strip()
+        if "<think>" in content:
+            raise ModelUnavailable("unfinished model reasoning")
+        return content
+
+    async def plan(self, context: dict) -> dict:
+        messages = build_planner_messages(context)
+        for attempt in range(2):
+            content = await self._chat(
+                messages, "plan", temperature=0.1, max_tokens=350
+            )
+            match = re.search(r"\{.*\}", content, re.DOTALL)
+            if match:
+                try:
+                    data = json.loads(match.group(0))
+                    if isinstance(data, dict) and isinstance(
+                        data.get("actions"), list
+                    ):
+                        return data
+                except json.JSONDecodeError:
+                    pass
+            if attempt == 0:
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": "Повтори ответ как один корректный JSON-объект.",
+                    }
+                )
+        raise ModelUnavailable("invalid action plan")
+
+    async def respond(self, context: dict) -> str:
+        content = await self._chat(
+            build_reply_messages(context),
+            "reply",
+            temperature=0.55,
+            max_tokens=220,
         )
-        try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                response = await client.post(
-                    f"{self._base_url}/chat/completions",
-                    headers={"Authorization": "Bearer local"},
-                    json={
-                        "model": self._model,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "chat_template_kwargs": {
-                            "enable_thinking": False,
-                        },
-                        "temperature": 0.4,
-                        "max_tokens": 256,
-                    },
-                )
-                response.raise_for_status()
-                content = response.json()["choices"][0]["message"]["content"]
-                agent_log.model_response("reply", content)
-                answer = re.sub(
-                    r"<think>.*?</think>",
-                    "",
-                    content,
-                    flags=re.DOTALL,
-                ).strip()
-                if "<think>" in answer:
-                    answer = answer.split("<think>", 1)[0].strip()
-                return (
-                    answer
-                    if self._is_valid_reply(stage, answer, customer_text)
-                    else fallback
-                )
-        except (
-            httpx.HTTPError,
-            KeyError,
-            TypeError,
-            IndexError,
-        ):
-            return fallback
-
-    @staticmethod
-    def _is_valid_reply(
-        stage: str,
-        answer: str,
-        customer_text: str,
-    ) -> bool:
-        lowered = answer.lower()
-        if not answer:
-            return False
-        if stage == STAGE_ASK_BRANCH:
-            customer_words = set(re.findall(r"[а-яё]+", customer_text.lower()))
-            known_words = {branch.lower() for branch in BRANCHES}
-            has_noise = any(
-                word in lowered
-                for word in customer_words - known_words
-                if len(word) > 3
-            )
-            return not has_noise and any(
-                branch.lower() in lowered for branch in BRANCHES
-            )
-        if stage == STAGE_ASK_DELIVERY:
-            return "достав" in lowered or "самовывоз" in lowered
-        if stage == STAGE_ASK_ADDRESS:
-            return "адрес" in lowered
-        if stage == STAGE_CONFIRM:
-            return "подтверд" in lowered
-        if stage == STAGE_ITEM_ADDED:
-            return "точк" in lowered or "филиал" in lowered
-        if stage == STAGE_ASK_ORDER:
-            return any(word in lowered for word in ("заказ", "блюд", "напит"))
-        if stage == STAGE_UNAVAILABLE:
-            customer_words = set(re.findall(r"[а-яё]+", customer_text.lower()))
-            has_item = any(
-                word in lowered for word in customer_words if len(word) > 3
-            )
-            return has_item and ("налич" in lowered or "нет" in lowered)
-        return True
-
-    async def extract(self, text: str) -> ExtractedOrderItem | None:
-        prompt = build_order_extraction_prompt(text)
-        try:
-            async with httpx.AsyncClient(timeout=8.0) as client:
-                response = await client.post(
-                    f"{self._base_url}/chat/completions",
-                    headers={"Authorization": "Bearer local"},
-                    json={
-                        "model": self._model,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "chat_template_kwargs": {
-                            "enable_thinking": False,
-                        },
-                        "temperature": 0,
-                        "max_tokens": 80,
-                    },
-                )
-                response.raise_for_status()
-                content = response.json()["choices"][0]["message"]["content"]
-                agent_log.model_response("extract", content)
-                match = re.search(r"\{.*\}", content, re.DOTALL)
-                if not match:
-                    return None
-                data = json.loads(match.group(0))
-                name = data.get("item")
-                return (
-                    ExtractedOrderItem(
-                        str(name), max(1, int(data.get("quantity", 1)))
-                    )
-                    if name
-                    else None
-                )
-        except (
-            httpx.HTTPError,
-            KeyError,
-            ValueError,
-            TypeError,
-            json.JSONDecodeError,
-        ):
-            return None
+        if not content or len(content) > 500:
+            raise ModelUnavailable("invalid reply length")
+        return content

@@ -4,39 +4,37 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Гиро — голосовой заказ</title>
-  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/styles.css?v=final-1" />
 </head>
 <body>
   <main class="app-shell">
     <section class="voice-panel">
-      <div class="brand"><span class="brand-dot"></span> ГИРО</div>
       <div class="voice-content">
-        <p class="eyebrow">Голосовой менеджер заказов</p>
-        <h1>Ваш заказ —<br /><span>в одном разговоре</span></h1>
-        <p id="status" class="status">Нажмите на сферу, чтобы начать разговор</p>
-        <button id="talk" class="orb-button" aria-label="Начать разговор">
-          <span class="orb-glow"></span>
-          <span class="orb-core"></span>
-          <span class="orb-ring orb-ring-one"></span>
-          <span class="orb-ring orb-ring-two"></span>
+        <p id="status" class="screen-reader-only" aria-live="polite"></p>
+        <button id="talk" class="talk-button" aria-label="Начать разговор">
+          <span class="mic-icon" aria-hidden="true"></span>
+          <span id="talk-label" class="talk-label">Начать разговор</span>
         </button>
-        <span id="orb-label" class="orb-label">Начать разговор</span>
+        <span id="orb-label" class="screen-reader-only"></span>
+        <canvas
+          id="audio-visualizer"
+          class="audio-visualizer"
+          aria-label="Визуализация звука"
+        ></canvas>
       </div>
-      <p class="hint">Нажмите ещё раз, чтобы завершить звонок</p>
     </section>
     <aside class="orders-panel">
       <div class="orders-header">
-        <div>
-          <p class="eyebrow">История</p>
-          <h2>Заказы</h2>
-        </div>
-        <button id="refresh" class="refresh" aria-label="Обновить заказы">↻</button>
+        <h2>Заказы</h2>
+        <button id="refresh" class="refresh" aria-label="Обновить заказы">
+          Обновить
+        </button>
       </div>
       <div id="orders-list" class="orders-list">
         <p class="muted">Загрузка…</p>
       </div>
     </aside>
   </main>
-  <script src="/app.js"></script>
+  <script src="/app.js?v=local-audio-1"></script>
 </body>
 </html>
