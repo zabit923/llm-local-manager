@@ -17,7 +17,7 @@ def read_secret_or_env(
     """
     path = Path(f"/run/secrets/{secret_name}")
     if path.exists():
-        return path.read_text().strip()
+        return path.read_text(encoding="utf-8").strip()
     return os.getenv(env, default)
 
 

@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from src.application import messages
 from src.application.schemas.orders import OrderCreate, OrderItemQuantityUpdate
 from src.application.services.cart import CartService
 from src.domain.errors.does_not_exists import CustomDoesNotExist
@@ -22,6 +23,18 @@ class OrderUseCases:
         self._commiter = commiter
 
     async def create(self, data: OrderCreate) -> Order:
+        order = await self._build_order(data)
+        await self._commiter.commit()
+        return await self.get(order.id)
+
+    async def create_confirmed(self, data: OrderCreate) -> Order:
+        order = await self._build_order(data)
+        self._confirm_order(order)
+        await self._repository.update(order)
+        await self._commiter.commit()
+        return await self.get(order.id)
+
+    async def _build_order(self, data: OrderCreate) -> Order:
         order = Order(
             status=OrderStatus.pending,
             customer_name=data.customer_name,
@@ -30,6 +43,7 @@ class OrderUseCases:
             delivery_type=data.delivery_type,
             address=data.address,
             payment_method=data.payment_method,
+            items=[],
         )
         await self._repository.add(order)
         for item in data.items:
@@ -40,8 +54,7 @@ class OrderUseCases:
                     order.id, item.drink_id, item.quantity
                 )
 
-        await self._commiter.commit()
-        return await self.get(order.id)
+        return order
 
     async def get(self, order_id: UUID) -> Order:
         order = await self._repository.get_by_id(order_id)
@@ -87,20 +100,24 @@ class OrderUseCases:
         order = await self._repository.get_by_id_for_update(order_id)
         if order is None:
             raise CustomDoesNotExist(class_name="Order", model_id=order_id)
-        if order.status is not OrderStatus.pending:
-            raise GeneralCustomError(
-                text="Order is not pending", model_id=order_id
-            )
-        if not order.items:
-            raise GeneralCustomError(
-                text="Cannot confirm an empty order", model_id=order_id
-            )
-        if order.delivery_type is DeliveryType.delivery and not order.address:
-            raise GeneralCustomError(
-                text="Delivery order requires an address", model_id=order_id
-            )
-
-        order.status = OrderStatus.confirmed
+        self._confirm_order(order)
         await self._repository.update(order)
         await self._commiter.commit()
         return order
+
+    @staticmethod
+    def _confirm_order(order: Order) -> None:
+        if order.status is not OrderStatus.pending:
+            raise GeneralCustomError(
+                text=messages.ORDER_NOT_PENDING, model_id=order.id
+            )
+        if not order.items:
+            raise GeneralCustomError(
+                text=messages.EMPTY_ORDER, model_id=order.id
+            )
+        if order.delivery_type is DeliveryType.delivery and not order.address:
+            raise GeneralCustomError(
+                text=messages.DELIVERY_ADDRESS_REQUIRED, model_id=order.id
+            )
+
+        order.status = OrderStatus.confirmed

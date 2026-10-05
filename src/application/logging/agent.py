@@ -1,128 +1,70 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+from src.application.logging import messages
+
+if TYPE_CHECKING:
+    from src.application.agent.conversation.state import ConversationState
 
 
 class AgentLog:
+
     def __init__(self) -> None:
-        self._logger = logging.getLogger("src.application.agent")
+        self._logger = logging.getLogger(messages.AGENT_LOGGER)
 
     def input(
         self,
         session_id: str,
         text: str,
-        items: int,
-        branch: str | None,
-        delivery: Any,
-        has_address: bool,
+        state: ConversationState,
     ) -> None:
         self._logger.info(
-            "Agent input: session=%s text=%r items=%d branch=%s "
-            "delivery=%s address=%s",
+            messages.AGENT_INPUT,
             session_id,
             text,
-            items,
-            branch,
-            delivery,
-            has_address,
+            len(state.lines),
+            state.branch,
+            state.delivery_type,
+            bool(state.address),
         )
-
-    def branch_parsed(self, session_id: str, branch: str | None) -> None:
-        self._logger.debug(
-            "Agent branch parsed: session=%s branch=%s",
-            session_id,
-            branch,
-        )
-
-    def delivery_parsed(self, session_id: str, delivery: Any) -> None:
-        self._logger.debug(
-            "Agent delivery parsed: session=%s delivery=%s",
-            session_id,
-            delivery,
-        )
-
-    def address_saved(self, session_id: str) -> None:
-        self._logger.debug("Agent address saved: session=%s", session_id)
-
-    def confirms(self, session_id: str) -> None:
-        self._logger.info("Agent confirms order: session=%s", session_id)
 
     def completed(self, session_id: str, order_id: Any) -> None:
-        self._logger.info(
-            "Agent order completed: session=%s order_id=%s",
-            session_id,
-            order_id,
-        )
+        self._logger.info(messages.AGENT_COMPLETED, session_id, order_id)
 
     def extraction(self, session_id: str, result: Any) -> None:
-        self._logger.debug(
-            "Agent model plan: session=%s result=%s",
-            session_id,
-            result,
-        )
+        self._logger.debug(messages.AGENT_PLAN, session_id, result)
 
     def actions(self, session_id: str, events: Any) -> None:
-        self._logger.info(
-            "Agent verified actions: session=%s events=%s",
-            session_id,
-            events,
-        )
-
-    def catalog_match(self, session_id: str, item: str, match: Any) -> None:
-        self._logger.debug(
-            "Agent catalog match: session=%s item=%r match=%s",
-            session_id,
-            item,
-            match,
-        )
-
-    def item_added(self, session_id: str, item: str, quantity: int) -> None:
-        self._logger.info(
-            "Agent item added: session=%s item=%s quantity=%d",
-            session_id,
-            item,
-            quantity,
-        )
+        self._logger.info(messages.AGENT_ACTIONS, session_id, events)
 
     def reply(self, session_id: str, stage: str, text: str) -> None:
-        self._logger.debug(
-            "Agent reply generated: session=%s stage=%s text=%r",
-            session_id,
-            stage,
-            text,
-        )
+        self._logger.debug(messages.AGENT_REPLY, session_id, stage, text)
 
     def model_response(self, operation: str, text: str) -> None:
-        self._logger.debug(
-            "Qwen model response: operation=%s text=%r",
-            operation,
-            text,
-        )
+        self._logger.debug(messages.MODEL_RESPONSE, operation, text)
 
 
 class SocketLog:
-    """Structured log messages for the agent WebSocket."""
 
     def __init__(self) -> None:
-        self._logger = logging.getLogger(
-            "src.presentation.api_v1.views.public.agent"
-        )
+        self._logger = logging.getLogger(messages.SOCKET_LOGGER)
 
     def connected(self, client: Any) -> None:
-        self._logger.info("Agent websocket connected: client=%s", client)
+        self._logger.info(messages.SOCKET_CONNECTED, client)
 
     def received(self, data: Any) -> None:
-        self._logger.info("Agent websocket received: data=%s", data)
+        self._logger.info(messages.SOCKET_RECEIVED, data)
 
     def sent(self, data: Any) -> None:
-        self._logger.info("Agent websocket sent: data=%s", data)
+        self._logger.info(messages.SOCKET_SENT, data)
 
     def disconnected(self, client: Any) -> None:
-        self._logger.info("Agent websocket disconnected: client=%s", client)
+        self._logger.info(messages.SOCKET_DISCONNECTED, client)
 
     def failed(self, client: Any) -> None:
-        self._logger.exception("Agent websocket failed: client=%s", client)
+        self._logger.exception(messages.SOCKET_FAILED, client)
 
 
 agent_log = AgentLog()

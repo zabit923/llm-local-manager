@@ -67,7 +67,7 @@ docker compose -f docker-compose.local.yml up -d --build
 ```
 
 ```bash
-poetry run python scripts/voice_server.py
+poetry run python -m src.entrypoint.voice
 ```
 
 Затем откройте `http://localhost:3000`, разрешите микрофон и нажмите круг.
@@ -102,7 +102,7 @@ backend и фронтенд — в Docker. Порты 8000 и 8001 предна�
 При нехватке VRAM запустите STT на CPU (будет медленнее):
 
 ```bash
-VOICE_ASR_DEVICE=cpu poetry run python scripts/voice_server.py
+VOICE_ASR_DEVICE=cpu poetry run python -m src.entrypoint.voice
 ```
 
 Другие настройки: `VOICE_BACKEND_URL` (по умолчанию localhost:8088),

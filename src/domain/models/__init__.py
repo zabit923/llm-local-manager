@@ -8,7 +8,6 @@ from src.domain.models.dish import Dish
 from src.domain.models.drinks import Drink
 from src.domain.models.order import Order, OrderItem
 
-
 __all__ = (
     "Base",
     "Dish",

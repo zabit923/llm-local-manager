@@ -11,7 +11,6 @@ from src.application.schemas.dishes import (
 )
 from src.application.use_cases.dishes import DishUseCases
 
-
 router = APIRouter(
     prefix="/dishes",
     tags=["Staff dishes"],

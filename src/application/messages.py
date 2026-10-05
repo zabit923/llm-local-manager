@@ -1,0 +1,8 @@
+DISH_UNAVAILABLE = "Dish is unavailable"
+DRINK_UNAVAILABLE = "Drink is unavailable"
+ORDER_NOT_PENDING = "Order is not pending"
+EMPTY_ORDER = "Cannot confirm an empty order"
+DELIVERY_ADDRESS_REQUIRED = "Delivery order requires an address"
+ORDER_NOT_EDITABLE = "Only pending orders can be changed"
+EXACTLY_ONE_MENU_ITEM = "provide exactly one of dish_id or drink_id"
+NULL_CATALOG_FIELD = "{field} cannot be null"

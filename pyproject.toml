@@ -74,3 +74,37 @@ package-mode = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.black]
+line-length = 80
+target-version = ["py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 80
+known_first_party = ["src"]
+known_third_party = ["redis"]
+
+[tool.pylint.main]
+py-version = "3.12"
+persistent = false
+
+[tool.pylint.format]
+max-line-length = 80
+
+[tool.pylint.imports]
+known-third-party = ["redis"]
+
+[tool.pylint.messages_control]
+# Protocols, DTOs and CRUD facades have self-describing members.
+# Correctness, branch complexity and duplicate-code checks remain enabled.
+disable = [
+    "missing-module-docstring",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "too-few-public-methods",
+]
+
+[tool.pylint.design]
+# A conversation DTO has eight independent fields, not eight responsibilities.
+max-attributes = 10

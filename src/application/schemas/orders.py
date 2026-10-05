@@ -2,6 +2,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from src.application import messages
 from src.domain.models.choises.enum import (
     DeliveryType,
     OrderStatus,
@@ -17,7 +18,7 @@ class OrderItemCreate(BaseModel):
     @model_validator(mode="after")
     def exactly_one_menu_item(self) -> "OrderItemCreate":
         if (self.dish_id is None) == (self.drink_id is None):
-            raise ValueError("provide exactly one of dish_id or drink_id")
+            raise ValueError(messages.EXACTLY_ONE_MENU_ITEM)
         return self
 
 

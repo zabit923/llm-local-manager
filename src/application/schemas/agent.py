@@ -12,4 +12,4 @@ class AgentMessageResponse(BaseModel):
     session_id: str
     reply: str
     order_id: UUID | None = None
-    cart: list[str] = []
+    cart: list[str] = Field(default_factory=list)

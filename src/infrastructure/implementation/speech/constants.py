@@ -1,0 +1,15 @@
+ASR_MODEL = "nvidia/parakeet-tdt-0.6b-v3"
+ASR_TASK = "automatic-speech-recognition"
+ASR_DEVICE_ENV = "VOICE_ASR_DEVICE"
+DEFAULT_ASR_DEVICE = "cuda:0"
+ASR_TOKEN_LIMIT = 256
+TTS_PATH_ENV = "VOICE_TTS_PATH"
+TTS_URL = "https://models.silero.ai/models/tts/ru/v5_ru.pt"
+TTS_HUB_PATH = "snakers4_silero-models_master/src/silero/model/v5_ru.pt"
+TTS_LOCAL_PATH = ".voice-models/v5_ru.pt"
+TTS_PACKAGE = "tts_models"
+TTS_OBJECT = "model"
+TTS_SPEAKER = "xenia"
+CPU_THREADS = 4
+MODELS_READY_LOG = "Parakeet and Silero TTS v5_ru ready"
+ASR_LOADING_LOG = "Loading Parakeet on %s"

@@ -1,18 +1,10 @@
 from typing import Protocol
-from uuid import UUID
 
 from src.domain.models.drinks import Drink
+from src.domain.ports.db.repositories.catalog_repository import (
+    CatalogRepository,
+)
 
 
-class DrinkRepository(Protocol):
-    async def add(self, drink: Drink) -> Drink: ...
-
-    async def update(self, drink: Drink) -> Drink: ...
-
-    async def get_by_id(self, drink_id: UUID) -> Drink | None: ...
-
-    async def list_all(self) -> list[Drink]: ...
-
-    async def list_available(self) -> list[Drink]: ...
-
-    async def delete(self, drink: Drink) -> None: ...
+class DrinkRepository(CatalogRepository[Drink], Protocol):
+    pass

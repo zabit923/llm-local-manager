@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from src.application import messages
 from src.domain.errors.does_not_exists import CustomDoesNotExist
 from src.domain.errors.general import GeneralCustomError
 from src.domain.models.choises.enum import OrderStatus
@@ -13,8 +14,6 @@ from src.domain.ports.db.repositories.order_repository import OrderRepository
 
 
 class CartService:
-    """Изменяет draft-заказ и сохраняет цену позиции на момент добавления."""
-
     def __init__(
         self,
         order_repository: OrderRepository,
@@ -36,7 +35,7 @@ class CartService:
             raise CustomDoesNotExist(class_name="Dish", model_id=dish_id)
         if not dish.is_available:
             raise GeneralCustomError(
-                text="Dish is unavailable", model_id=dish_id
+                text=messages.DISH_UNAVAILABLE, model_id=dish_id
             )
 
         item = next(
@@ -65,7 +64,7 @@ class CartService:
             raise CustomDoesNotExist(class_name="Drink", model_id=drink_id)
         if not drink.is_available:
             raise GeneralCustomError(
-                text="Drink is unavailable", model_id=drink_id
+                text=messages.DRINK_UNAVAILABLE, model_id=drink_id
             )
 
         item = next(
@@ -107,7 +106,7 @@ class CartService:
             raise CustomDoesNotExist(class_name="Order", model_id=order_id)
         if order.status is not OrderStatus.pending:
             raise GeneralCustomError(
-                text="Only pending orders can be changed", model_id=order_id
+                text=messages.ORDER_NOT_EDITABLE, model_id=order_id
             )
         return order
 

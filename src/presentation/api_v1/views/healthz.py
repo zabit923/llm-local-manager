@@ -1,6 +1,6 @@
+from dishka.integrations.fastapi import DishkaRoute
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
-from dishka.integrations.fastapi import DishkaRoute
 
 router = APIRouter(
     tags=["Health"],

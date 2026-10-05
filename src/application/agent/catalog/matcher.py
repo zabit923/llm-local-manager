@@ -1,34 +1,18 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
 from difflib import SequenceMatcher
 
-from src.application.agent.constants import NUMBER_WORDS, WORD_SUFFIXES
+from src.application.agent.catalog.dto import (
+    CatalogEntry,
+    CatalogMatch,
+    MenuItem,
+)
+from src.application.agent.config.language import SPOKEN_WORD_ALIASES
+from src.application.agent.config.settings import NUMBER_WORDS, WORD_SUFFIXES
 from src.application.schemas.orders import OrderItemCreate
 from src.application.use_cases.dishes import DishUseCases
 from src.application.use_cases.drinks import DrinkUseCases
-
-
-@dataclass(frozen=True)
-class CatalogMatch:
-    item: object
-    kind: str
-
-
-@dataclass(frozen=True)
-class CatalogEntry:
-    sku: str
-    item: object
-    kind: str
-
-    def as_context(self) -> dict[str, object]:
-        return {
-            "sku": self.sku,
-            "name": self.item.name,
-            "price_minor": self.item.price_minor,
-            "available": self.item.is_available,
-        }
 
 
 class QuantityParser:
@@ -47,17 +31,24 @@ class CatalogMatcher:
     def __init__(self, dishes: DishUseCases, drinks: DrinkUseCases) -> None:
         self._dishes = dishes
         self._drinks = drinks
+        self._entries: list[CatalogEntry] | None = None
+
+    def clear_snapshot(self) -> None:
+        self._entries = None
 
     async def entries(self) -> list[CatalogEntry]:
+        if self._entries is not None:
+            return self._entries
         dishes = await self._dishes.list()
         drinks = await self._drinks.list()
-        return [
+        self._entries = [
             CatalogEntry(f"D{index}", dish, "dish")
             for index, dish in enumerate(dishes, 1)
         ] + [
             CatalogEntry(f"R{index}", drink, "drink")
             for index, drink in enumerate(drinks, 1)
         ]
+        return self._entries
 
     @staticmethod
     def _score(text: str, name: str) -> float:
@@ -80,6 +71,7 @@ class CatalogMatcher:
     def _stem_words(value: str) -> set[str]:
         result = set()
         for word in re.findall(r"[а-яёa-z]+", value.lower()):
+            word = SPOKEN_WORD_ALIASES.get(word, word)
             for suffix in WORD_SUFFIXES:
                 if len(word) > len(suffix) + 2 and word.endswith(suffix):
                     word = word[: -len(suffix)]
@@ -88,37 +80,18 @@ class CatalogMatcher:
                 result.add(word)
         return result
 
-    async def _candidates(self, available: bool) -> list[tuple[object, str]]:
-        dishes = [
-            dish
-            for dish in await self._dishes.list()
-            if dish.is_available is available
-        ]
-        drinks = [
-            drink
-            for drink in await self._drinks.list()
-            if drink.is_available is available
-        ]
-        return [(dish, "dish") for dish in dishes] + [
-            (drink, "drink") for drink in drinks
+    async def _candidates(
+        self,
+        available: bool,
+    ) -> list[tuple[MenuItem, str]]:
+        return [
+            (entry.item, entry.kind)
+            for entry in await self.entries()
+            if entry.item.is_available is available
         ]
 
     async def find(self, text: str) -> CatalogMatch | None:
         available = await self._candidates(True)
-        normal = text.lower()
-        if re.search(r"\b(обычн\w*|классич\w*)\b", normal):
-            if re.search(r"\b(гир\w*|кир\w*|герой|киа|kia)\b", normal):
-                classic = next(
-                    (
-                        item
-                        for item, kind in available
-                        if kind == "dish"
-                        and item.name.lower().startswith("классический гирос")
-                    ),
-                    None,
-                )
-                if classic is not None:
-                    return CatalogMatch(classic, "dish")
         ranked = sorted(
             available,
             key=lambda pair: self._score(text, pair[0].name),

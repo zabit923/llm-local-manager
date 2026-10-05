@@ -1,19 +1,8 @@
-"""
-Security headers middleware (F3.a).
-
-Применяется ко всем ответам, включая 4xx/5xx и preflight.
-HSTS НЕ ставится — он на nginx@DE (TLS-terminator).
-
-setdefault, а не overwrite: nginx может задавать более строгие значения
-на уровне edge — мы не перетираем. Defence in depth, не источник истины.
-"""
-
 from collections.abc import Awaitable, Callable
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
-
 
 _HEADERS: dict[str, str] = {
     "X-Content-Type-Options": "nosniff",

@@ -8,11 +8,17 @@ from src.domain.models.order import OrderItem
 from src.domain.ports.db.repositories.order_item_repository import (
     OrderItemRepository,
 )
+from src.infrastructure.implementation.db.repositories.base import (
+    SqlAlchemyRepository,
+)
 
 
-class SqlAlchemyOrderItemRepository(OrderItemRepository):
+class SqlAlchemyOrderItemRepository(
+    SqlAlchemyRepository[OrderItem],
+    OrderItemRepository,
+):
     def __init__(self, session: AsyncSession) -> None:
-        self._session = session
+        super().__init__(session, OrderItem)
 
     @staticmethod
     def _with_menu_item(statement):
@@ -20,16 +26,6 @@ class SqlAlchemyOrderItemRepository(OrderItemRepository):
             selectinload(OrderItem.dish),
             selectinload(OrderItem.drink),
         )
-
-    async def add(self, item: OrderItem) -> OrderItem:
-        self._session.add(item)
-        await self._session.flush()
-        return item
-
-    async def update(self, item: OrderItem) -> OrderItem:
-        self._session.add(item)
-        await self._session.flush()
-        return item
 
     async def get_by_id(self, item_id: UUID) -> OrderItem | None:
         statement = self._with_menu_item(
@@ -45,7 +41,3 @@ class SqlAlchemyOrderItemRepository(OrderItemRepository):
         )
         result = await self._session.scalars(statement)
         return list(result)
-
-    async def delete(self, item: OrderItem) -> None:
-        await self._session.delete(item)
-        await self._session.flush()

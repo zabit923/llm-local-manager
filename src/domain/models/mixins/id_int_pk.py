@@ -1,11 +1,10 @@
-from uuid6 import UUID, uuid7
-
 from sqlalchemy import BigInteger, Identity
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import (
     Mapped,
     mapped_column,
 )
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from uuid6 import UUID, uuid7
 
 
 class IdBigIntPkMixin:

@@ -1,17 +1,18 @@
-import asyncio
-from typing import AsyncGenerator
+from collections.abc import AsyncIterator
 
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from httpx import AsyncClient, ASGITransport
 
-from src.application.tests.setup.dishka import setup_test_app
-from src.domain.ports.db.commiter import Commiter
-from src.entrypoint.main import create_app
-from src.entrypoint.config.setup_db import app_db_test, app_db
+from src.application.tests.fake_ioc import _TestProvider
 from src.domain.models.base import Base
+from src.domain.ports.db.commiter import Commiter
+from src.entrypoint.config.build import settings
+from src.entrypoint.config.setup_db import AppDataBase
+from src.entrypoint.ioc import setup_di
+from src.entrypoint.main import create_app
 from src.infrastructure.implementation.db.commiter import CommiterImpl
 
 
@@ -20,73 +21,62 @@ def anyio_backend():
     return "asyncio"
 
 
-@pytest_asyncio.fixture(scope="session")
-def event_loop():
-    """
-    Глобальный event loop для всех async тестов (API и unit).
-    """
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
+@pytest_asyncio.fixture(name="test_database")
+async def database_resource() -> AsyncIterator[AppDataBase]:
+    config = settings.db.model_copy(
+        update={
+            "url": settings.db.test_url,
+            "pool_size": 2,
+            "max_overflow": 2,
+        }
+    )
+    database = AppDataBase(config)
+    try:
+        yield database
+    finally:
+        await database.dispose()
 
 
-@pytest.fixture(scope="function", autouse=True)
-async def setup_test_db() -> AsyncGenerator:
-    """
-    Fixture для настройки тестовой базы данных перед тестами и очистки после.
-    Создает и удаляет все таблицы базы данных.
-    """
-    async with app_db_test.engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-    yield
-
-    async with app_db_test.engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+@pytest_asyncio.fixture(autouse=True)
+async def setup_test_db(test_database: AppDataBase):
+    async with test_database.engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+    try:
+        yield
+    finally:
+        async with test_database.engine.begin() as connection:
+            await connection.run_sync(Base.metadata.drop_all)
 
 
-@pytest_asyncio.fixture(scope="function")
-async def async_client(app_with_test_db: FastAPI) -> AsyncClient:  # type:ignore
-    """
-    Fixture для создания асинхронного HTTP-клиента FastAPI.
-    Использует ASGITransport для взаимодействия с приложением.
-    """
-    transport = ASGITransport(app=app_with_test_db)
-    async with AsyncClient(
-        transport=transport, base_url="http://test"
-    ) as client:
-        yield client  # type:ignore
-
-
-@pytest_asyncio.fixture(scope="function")
-async def test_db_session() -> AsyncGenerator[AsyncSession, None]:
-    """
-    Fixture для создания тестовой сессии базы данных.
-    Обеспечивает корректное закрытие сессии после использования.
-    """
-    async with app_db_test.session_factory() as session:
+@pytest_asyncio.fixture(name="test_db_session")
+async def database_session(
+    test_database: AppDataBase,
+) -> AsyncIterator[AsyncSession]:
+    async with test_database.session_factory() as session:
         yield session
-        await session.close()
 
 
-@pytest_asyncio.fixture(scope="function")
-async def app_with_test_db(test_db_session: AsyncSession) -> AsyncGenerator:
-    """
-    Подменяем зависимости приложения, включая Dishka.
-    """
-    app = create_app()
-    setup_test_app(app, test_db_session)
-
-    async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
-        yield test_db_session
-
-    app.dependency_overrides[app_db.session_getter] = override_get_db
-    yield app
-    app.dependency_overrides.clear()
+@pytest_asyncio.fixture(name="app_with_test_db")
+async def test_application(
+    test_db_session: AsyncSession,
+) -> AsyncIterator[FastAPI]:
+    container = setup_di(_TestProvider(test_db_session))
+    app = create_app(container=container)
+    try:
+        yield app
+    finally:
+        await container.close()
 
 
 @pytest_asyncio.fixture
-def commiter(
-    test_db_session: AsyncSession,
-) -> Commiter:
+async def async_client(app_with_test_db: FastAPI) -> AsyncIterator[AsyncClient]:
+    async with AsyncClient(
+        transport=ASGITransport(app=app_with_test_db),
+        base_url="http://test",
+    ) as client:
+        yield client
+
+
+@pytest.fixture
+def commiter(test_db_session: AsyncSession) -> Commiter:
     return CommiterImpl(session=test_db_session)

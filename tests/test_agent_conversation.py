@@ -3,11 +3,21 @@ from uuid import uuid4
 
 import pytest
 
-from src.application.agent.catalog import CatalogMatcher
+from src.application.agent.catalog.matcher import CatalogMatcher
+from src.application.agent.conversation.sessions import InMemorySessionStore
 from src.application.agent.llm import ModelUnavailable
-from src.application.agent.messages import money_message
+from src.application.agent.responses.dto import ReplyFacts
+from src.application.agent.responses.money import money_message
+from src.application.agent.responses.policy import ReplyPolicy
 from src.application.agent.service import OrderAgent
-from src.application.agent.state import session_store
+
+session_store = InMemorySessionStore()
+
+
+def valid_reply(reply, order, events, history, context):
+    return ReplyPolicy.accepts(
+        ReplyFacts(reply, order, events, history, context)
+    )
 
 
 class Menu:
@@ -37,6 +47,9 @@ class Orders:
     async def confirm(self, order_id):
         return SimpleNamespace(id=order_id, total_price_minor=45000)
 
+    async def create_confirmed(self, data):
+        return await self.create(data)
+
 
 class Model:
     def __init__(self, plans: dict[str, dict]) -> None:
@@ -57,9 +70,7 @@ class Model:
         if text == "что порекомендуешь":
             return "Я бы посоветовала самовывоз, если удобно зайти."
         for event in context["verified_events"]:
-            if event["action"] == "add_item" and (
-                event["status"] == "applied"
-            ):
+            if event["action"] == "add_item" and (event["status"] == "applied"):
                 return f"Добавила {event['item']} в корзину."
             if event["action"] == "set_branch" and (
                 event["status"] == "applied"
@@ -104,6 +115,8 @@ def make_agent(plans: dict[str, dict]) -> tuple[OrderAgent, Orders, Model]:
         Menu(["Классический гирос", "Острый гирос"]),
         Menu(["Вода", "Кола"]),
         orders,
+        model,
+        session_store,
     )
     agent._model = model
     return agent, orders, model
@@ -115,23 +128,29 @@ def test_spoken_price() -> None:
     assert money_message(10250) == "102 рубля 50 копеек"
 
 
-@pytest.mark.parametrize("reply", [
-    "Хорошо, добавляю один гирос. Хотите что-нибудь ещё?",
-    "Самовывоз выбран. Готовы оформить заказ?",
-    "Выберите, где хотите получить заказ. Выберите точку.",
-    "Выберите, хотите ли получить его на дом или в самовывоз.",
-    "Заказ оформлен. Сумма 630 рублей.",
-])
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "Хорошо, добавляю один гирос. Хотите что-нибудь ещё?",
+        "Самовывоз выбран. Готовы оформить заказ?",
+        "Выберите, где хотите получить заказ. Выберите точку.",
+        "Выберите, хотите ли получить его на дом или в самовывоз.",
+        "Заказ оформлен. Сумма 630 рублей.",
+    ],
+)
 def test_empty_cart_rejects_false_progress_from_logs(reply):
     context = {
         "customer_text": "Один гиро.",
         "last_agent_question": None,
         "state": {
-            "cart": [], "branch": None, "delivery_type": None,
-            "partial_address": None, "address": None,
+            "cart": [],
+            "branch": None,
+            "delivery_type": None,
+            "partial_address": None,
+            "address": None,
         },
     }
-    assert not OrderAgent._valid_reply(reply, None, [], [], context)
+    assert not valid_reply(reply, None, [], [], context)
 
 
 @pytest.mark.asyncio
@@ -181,7 +200,7 @@ def test_pickup_reply_cannot_request_home_address() -> None:
             "branch": None,
         },
     }
-    valid = OrderAgent._valid_reply(
+    valid = valid_reply(
         "Назовите ваш адрес и номер дома.",
         None,
         [],
@@ -203,14 +222,14 @@ def test_finished_cart_reply_moves_to_branch_without_repeating_item() -> None:
             "branch": None,
         },
     }
-    repeated = OrderAgent._valid_reply(
+    repeated = valid_reply(
         "Гирос добавлен. Хотите что-нибудь ещё?",
         None,
         [],
         [],
         context,
     )
-    continued = OrderAgent._valid_reply(
+    continued = valid_reply(
         "Хорошо. Какую точку выберете: Ермошкина или Центральная?",
         None,
         [],
@@ -332,28 +351,22 @@ async def test_misrecognized_pickup_word_creates_pickup_order() -> None:
 @pytest.mark.asyncio
 async def test_branch_name_can_be_partial_delivery_address() -> None:
     plans = {
-        "вода": {
-            "intent": "order", "actions": [item_action("R1", "вода")]
-        },
+        "вода": {"intent": "order", "actions": [item_action("R1", "вода")]},
         "Центральная": {
-            "intent": "branch", "actions": [
-                branch_action("Центральная", "Центральная")
-            ],
+            "intent": "branch",
+            "actions": [branch_action("Центральная", "Центральная")],
         },
         "доставка": {
-            "intent": "delivery", "actions": [
-                delivery_action("delivery", "доставка")
-            ],
+            "intent": "delivery",
+            "actions": [delivery_action("delivery", "доставка")],
         },
         "Ермошкина": {
-            "intent": "mistaken branch", "actions": [
-                branch_action("Ермошкина", "Ермошкина")
-            ],
+            "intent": "mistaken branch",
+            "actions": [branch_action("Ермошкина", "Ермошкина")],
         },
         "17А": {
-            "intent": "address", "actions": [
-                {"name": "set_address", "value": "17А"}
-            ],
+            "intent": "address",
+            "actions": [{"name": "set_address", "value": "17А"}],
         },
     }
     agent, orders, _ = make_agent(plans)

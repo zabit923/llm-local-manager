@@ -1,6 +1,6 @@
-from fastapi import FastAPI
-from dishka.integrations.fastapi import setup_dishka
 from dishka import make_async_container
+from dishka.integrations.fastapi import setup_dishka
+from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.tests.fake_ioc import _TestProvider

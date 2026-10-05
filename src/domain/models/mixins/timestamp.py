@@ -1,7 +1,8 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, func
+from sqlalchemy import DateTime
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.sql.functions import now
 
 from src.domain.constants import TIMEZONE
 
@@ -9,7 +10,7 @@ from src.domain.constants import TIMEZONE
 class CreatedAtMixin:
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        server_default=func.now(),
+        server_default=now(),
         nullable=False,
     )
 
@@ -17,12 +18,12 @@ class CreatedAtMixin:
 class TimestampMixin:
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        server_default=func.now(),
+        server_default=now(),
         nullable=False,
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        server_default=func.now(),
+        server_default=now(),
         onupdate=lambda: datetime.now(TIMEZONE),
         nullable=False,
     )

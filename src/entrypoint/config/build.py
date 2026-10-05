@@ -2,8 +2,8 @@ import os
 
 from src.domain.configs.app_env import AppEnv
 from src.entrypoint.config.loader import (
-    build_db_url,
     build_db_test_url,
+    build_db_url,
     build_redis_url,
     read_secret_or_env,
 )
@@ -91,42 +91,11 @@ class SettingsBuilder:
             )
         try:
             return AppEnv(raw_env)
-        except ValueError:
+        except ValueError as exc:
             raise RuntimeError(
                 f"FASTAPI_CFG__APP_ENV={raw_env!r} is invalid. "
                 "Must be one of: " + ", ".join(e.value for e in AppEnv)
-            )
-
-    # def _make_portal_auth(
-    #     self,
-    #     app_env: AppEnv,
-    # ) -> PortalAuthConfig:
-    #     """
-    #     PortalAuthConfig с env-зависимыми cookie-полями.
-    #
-    #     local:
-    #       - cookies без __Host- префикса (на http://localhost браузер
-    #         __Host- + Secure не примет — Secure требует HTTPS).
-    #       - cookie_secure_default=False.
-    #     test/prod:
-    #       - cookies с __Host- префиксом (host-only, Path=/, Secure).
-    #       - cookie_secure_default=True.
-    #
-    #     Остальные поля (TTL, lockout schedule, CSRF len и т.д.) — дефолты
-    #     PortalAuthConfig dataclass. Тюнинг — правка default в dataclass'е
-    #     либо расширение этого метода с чтением из env.
-    #     """
-    #     is_local = app_env == AppEnv.local
-    #     return PortalAuthConfig(
-    #         cookie_session_name=(
-    #             "payolin_portal_session" if is_local
-    #             else "__Host-portal_session"
-    #         ),
-    #         cookie_csrf_name=(
-    #             "payolin_portal_csrf" if is_local else "__Host-portal_csrf"
-    #         ),
-    #         cookie_secure_default=not is_local,
-    #     )
+            ) from exc
 
     def execute(
         self,

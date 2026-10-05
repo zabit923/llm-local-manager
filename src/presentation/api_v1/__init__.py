@@ -1,6 +1,5 @@
 from fastapi import APIRouter
 
-from src.domain.constants import APIV1_PORTAL, APIV1_STAFF, APIV1_PUB
 from src.presentation.api_v1.views.healthz import router as health_router
 from src.presentation.api_v1.views.public.agent import router as agent_router
 from src.presentation.api_v1.views.public.orders import (
@@ -11,13 +10,13 @@ from src.presentation.api_v1.views.staff.drinks import router as drinks_router
 from src.presentation.api_v1.views.staff.orders import router as orders_router
 
 public_router = APIRouter(
-    prefix=APIV1_PUB,
+    prefix="/pub",
 )
 staff_router = APIRouter(
-    prefix=APIV1_STAFF,
+    prefix="/staff",
 )
 portal_router = APIRouter(
-    prefix=APIV1_PORTAL,
+    prefix="/portal",
 )
 setup_router = APIRouter()
 

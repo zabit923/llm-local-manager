@@ -1,0 +1,2 @@
+class ModelUnavailable(Exception):
+    pass

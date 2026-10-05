@@ -1,9 +1,9 @@
 from typing import AsyncGenerator, AsyncIterator
 from unittest.mock import AsyncMock, Mock
 
+import redis.asyncio as aioredis
 from dishka import Provider, Scope, provide
 from sqlalchemy.ext.asyncio import AsyncSession
-import redis.asyncio as aioredis
 from taskiq import AsyncBroker
 
 
@@ -12,7 +12,7 @@ class _TestProvider(Provider):
         super().__init__()
         self._test_session = test_session
 
-    @provide(scope=Scope.REQUEST)
+    @provide(scope=Scope.REQUEST, override=True)
     async def provide_session(self) -> AsyncGenerator[AsyncSession, None]:
         yield self._test_session
 
@@ -21,7 +21,7 @@ class _TestProvider(Provider):
         """Mock Redis для тестов."""
         return AsyncMock(spec=aioredis.Redis)
 
-    @provide(scope=Scope.APP)
+    @provide(scope=Scope.APP, override=True)
     async def provide_broker(self) -> AsyncIterator[AsyncBroker]:
         """Mock AsyncBroker для тестов."""
         mock_broker = AsyncMock(spec=AsyncBroker)

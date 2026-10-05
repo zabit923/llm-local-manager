@@ -11,7 +11,6 @@ from src.application.schemas.orders import (
 )
 from src.application.use_cases.orders import OrderUseCases
 
-
 router = APIRouter(
     prefix="/orders",
     tags=["Staff orders"],

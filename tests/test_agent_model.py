@@ -7,20 +7,24 @@ from src.application.agent.llm import ModelUnavailable, QwenAgentModel
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("body", [
-    b"not-json",
-    b'{"choices":[{"message":{"content":null}}]}',
-    b'{"choices":[{"message":{"content":[]}}]}',
-    b'{"choices":[{"message":{"content":" "}}]}',
-    b'{"choices":[]}',
-])
+@pytest.mark.parametrize(
+    "body",
+    [
+        b"not-json",
+        b'{"choices":[{"message":{"content":null}}]}',
+        b'{"choices":[{"message":{"content":[]}}]}',
+        b'{"choices":[{"message":{"content":" "}}]}',
+        b'{"choices":[]}',
+    ],
+)
 async def test_invalid_llm_content_is_controlled(monkeypatch, body):
     original_client = httpx.AsyncClient
     transport = httpx.MockTransport(
         lambda request: httpx.Response(200, content=body),
     )
     monkeypatch.setattr(
-        httpx, "AsyncClient",
+        httpx,
+        "AsyncClient",
         lambda **kwargs: original_client(**kwargs, transport=transport),
     )
     model = QwenAgentModel()

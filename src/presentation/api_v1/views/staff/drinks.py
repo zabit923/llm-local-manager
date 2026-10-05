@@ -11,7 +11,6 @@ from src.application.schemas.drinks import (
 )
 from src.application.use_cases.drinks import DrinkUseCases
 
-
 router = APIRouter(
     prefix="/drinks",
     tags=["Staff drinks"],

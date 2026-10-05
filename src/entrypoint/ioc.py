@@ -1,8 +1,8 @@
 from collections.abc import AsyncIterator
 from typing import AsyncIterable
 
-from aiohttp import ClientSession, ClientTimeout, TCPConnector
 import redis.asyncio as aioredis
+from aiohttp import ClientSession, ClientTimeout, TCPConnector
 from dishka import (
     AsyncContainer,
     Provider,
@@ -15,7 +15,15 @@ from dishka.integrations.taskiq import TaskiqProvider
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from taskiq import AsyncBroker
 
-# --- Domain ports ---
+from src.application.agent.contracts.ports import AgentModel, SessionStore
+from src.application.agent.conversation.sessions import InMemorySessionStore
+from src.application.agent.service import OrderAgent
+from src.application.services.cart import CartService
+from src.application.tasks.register import register_tasks
+from src.application.use_cases.dishes import DishUseCases
+from src.application.use_cases.drinks import DrinkUseCases
+from src.application.use_cases.orders import OrderUseCases
+from src.application.use_cases.task import TaskManager
 from src.domain.ports.db.commiter import Commiter
 from src.domain.ports.db.repositories.dish_repository import DishRepository
 from src.domain.ports.db.repositories.drink_repository import DrinkRepository
@@ -26,46 +34,22 @@ from src.domain.ports.db.repositories.order_repository import OrderRepository
 from src.domain.ports.encryption.signing_secret import SigningSecretEncryption
 from src.domain.ports.redis.gateway import RedisGateway
 from src.domain.types.redis import BrokerRedis, CacheRedis
-
-# --- Application ---
-from src.application.services.cart import CartService
-from src.application.agent.service import OrderAgent
-from src.application.use_cases.task import TaskManager
-from src.application.use_cases.dishes import DishUseCases
-from src.application.use_cases.drinks import DrinkUseCases
-from src.application.use_cases.orders import OrderUseCases
-from src.application.tasks.register import register_tasks
-from src.infrastructure.implementation.db.commiter import CommiterImpl
-from src.infrastructure.implementation.db.repositories.dish_repository import (
-    SqlAlchemyDishRepository,
-)
-from src.infrastructure.implementation.db.repositories.drink_repository import (
-    SqlAlchemyDrinkRepository,
-)
-from src.infrastructure.implementation.db.repositories import (
-    order_item_repository,
-)
-from src.infrastructure.implementation.db.repositories.order_repository import (
-    SqlAlchemyOrderRepository,
-)
-
-# --- Entrypoint ---
 from src.entrypoint.config.build import Settings, settings
 from src.entrypoint.config.settings import AppEnv
-from src.entrypoint.config.setup_db import app_db
+from src.entrypoint.config.setup_db import AppDataBase
 from src.entrypoint.config.task_setup import create_broker
-from src.infrastructure.implementation.encryption import signing_secret_aes_gcm
-from src.infrastructure.implementation.redis.gateway import RedisGatewayImpl
-
-SqlAlchemyOrderItemRepository = (
-    order_item_repository.SqlAlchemyOrderItemRepository
+from src.infrastructure.implementation.db.commiter import CommiterImpl
+from src.infrastructure.implementation.db.repositories import (
+    SqlAlchemyDishRepository,
+    SqlAlchemyDrinkRepository,
+    SqlAlchemyOrderItemRepository,
+    SqlAlchemyOrderRepository,
 )
-AesGcmSecretEncryptionImpl = signing_secret_aes_gcm.AesGcmSecretEncryptionImpl
-
-
-# =============================================================================
-# ConfigProvider
-# =============================================================================
+from src.infrastructure.implementation.encryption import (
+    AesGcmSecretEncryptionImpl,
+)
+from src.infrastructure.implementation.llm.qwen import QwenAgentModel
+from src.infrastructure.implementation.redis.gateway import RedisGatewayImpl
 
 
 class ConfigProvider(Provider):
@@ -82,15 +66,21 @@ class ConfigProvider(Provider):
         return config.app_env
 
 
-# =============================================================================
-# SessionProvider
-# =============================================================================
-
-
 class SessionProvider(Provider):
     @provide(scope=Scope.APP)
-    def provide_session_maker(self) -> async_sessionmaker[AsyncSession]:
-        return app_db.session_factory
+    async def database(self, config: Settings) -> AsyncIterator[AppDataBase]:
+        database = AppDataBase(config.db)
+        try:
+            yield database
+        finally:
+            await database.dispose()
+
+    @provide(scope=Scope.APP)
+    def provide_session_maker(
+        self,
+        database: AppDataBase,
+    ) -> async_sessionmaker[AsyncSession]:
+        return database.session_factory
 
     @provide(scope=Scope.REQUEST)
     async def provide_session(
@@ -107,11 +97,6 @@ class SessionProvider(Provider):
     )
 
 
-# =============================================================================
-# BrokerProvider
-# =============================================================================
-
-
 class BrokerProvider(Provider):
     @provide(scope=Scope.APP)
     async def provide_broker(
@@ -119,17 +104,12 @@ class BrokerProvider(Provider):
         config: Settings,
     ) -> AsyncIterator[AsyncBroker]:
         broker = create_broker(broker_url=config.worker.broker_url)
-        register_tasks(broker=broker)
+        register_tasks(broker)
         await broker.startup()
         try:
             yield broker
         finally:
             await broker.shutdown()
-
-
-# =============================================================================
-# RedisProvider
-# =============================================================================
 
 
 class RedisProvider(Provider):
@@ -163,105 +143,6 @@ class RedisProvider(Provider):
     )
 
 
-# =============================================================================
-# PortalAuthProvider
-# =============================================================================
-
-
-# class PortalAuthProvider(Provider):
-#     """
-#     Portal merchant-user auth: password hashing, sessions, login-attempts,
-#     CSRF, pre_auth (F4), TOTP replay guard (F4). APP-scope (stateless
-#     сервисы с инжектом Redis-клиента и конфига).
-#
-#     Использует общий CacheRedis (DB 1) — namespace-изоляция через префикс
-#     'portal:' в ключах, см. KeyBuilder.portal_*.
-#
-#     NOTE F4: TotpService consume'им из AdminAuthProvider (там провайдится
-#     как APP scope). Dishka cross-provider lookup автоматически подтянет
-#     тот же instance. Семантически TotpService generic (не admin-specific),
-#     но рефактор переноса в общий provider — вне scope F4.
-#     """
-#
-#     @provide(scope=Scope.APP)
-#     def portal_auth_config(
-#         self,
-#         settings: Settings,
-#     ) -> PortalAuthConfig:
-#         # settings.portal_auth — готовый PortalAuthConfig из build.py
-#         # (_make_portal_auth с env-зависимыми cookie-полями).
-#         return settings.portal_auth
-#
-#     @provide(scope=Scope.APP)
-#     def password_hasher(
-#         self,
-#         config: PortalAuthConfig,
-#     ) -> PasswordHasher:
-#         return BcryptPasswordHasherImpl(dummy_hash=config.dummy_hash)
-#
-#     @provide(scope=Scope.APP)
-#     def session_service(
-#         self,
-#         config: PortalAuthConfig,
-#         redis: CacheRedis,
-#     ) -> PortalSessionService:
-#         return PortalSessionServiceImpl(config=config, redis=redis)
-#
-#     @provide(scope=Scope.APP)
-#     def login_attempts_service(
-#         self,
-#         config: PortalAuthConfig,
-#         redis: CacheRedis,
-#     ) -> LoginAttemptsService:
-#         return LoginAttemptsServiceImpl(config=config, redis=redis)
-#
-#     @provide(scope=Scope.APP)
-#     def csrf_service(
-#         self,
-#         settings: Settings,
-#     ) -> CsrfService:
-#         return CsrfServiceImpl(secret=settings.encryption.portal_csrf_secret)
-#
-#     @provide(scope=Scope.APP)
-#     def pre_auth_store(
-#         self,
-#         config: PortalAuthConfig,
-#         redis: CacheRedis,
-#     ) -> PortalPreAuthStore:
-#         return PortalPreAuthStoreImpl(config=config, redis=redis)
-#
-#     @provide(scope=Scope.APP)
-#     def portal_totp_replay_guard(
-#         self,
-#         redis_gateway: RedisGateway,
-#     ) -> PortalTotpReplayGuard:
-#         return PortalTotpReplayGuardImpl(redis_gateway=redis_gateway)
-#
-#     # Use cases — REQUEST scope (зависят от AsyncSession через
-#     # gateway/reader/audit_log/commiter, переинициализируются per-request).
-#     portal_login_use_case = provide(
-#         LoginMerchantUseCase,
-#         scope=Scope.REQUEST,
-#     )
-#     portal_logout_use_case = provide(
-#         LogoutMerchantUseCase,
-#         scope=Scope.REQUEST,
-#     )
-#     portal_totp_verify_use_case = provide(
-#         VerifyPortalTotpUseCase,
-#         scope=Scope.REQUEST,
-#     )
-#     portal_backup_code_login_use_case = provide(
-#         LoginPortalBackupCodeUseCase,
-#         scope=Scope.REQUEST,
-#     )
-
-
-# =============================================================================
-# AiohttpProvider
-# =============================================================================
-
-
 class AiohttpProvider(Provider):
     @provide(scope=Scope.APP)
     async def provide_aiohttp_session(self) -> AsyncIterator[ClientSession]:
@@ -274,11 +155,6 @@ class AiohttpProvider(Provider):
             timeout=ClientTimeout(total=30, connect=5),
         ) as session:
             yield session
-
-
-# =============================================================================
-# EncryptionProvider
-# =============================================================================
 
 
 class EncryptionProvider(Provider):
@@ -294,83 +170,11 @@ class EncryptionProvider(Provider):
         )
 
 
-# =============================================================================
-# PaymentProvider
-# =============================================================================
-
-
-# class PaymentProvider(Provider):
-
-
-# =============================================================================
-# TaskProvider
-# =============================================================================
-
-
 class TaskProvider(Provider):
     task_manager = provide(
         TaskManager,
         scope=Scope.REQUEST,
     )
-
-
-# =============================================================================
-# TransactionProvider
-# =============================================================================
-
-
-# class TransactionProvider(Provider):
-#     transaction_gateway = provide(
-#         TransactionGatewayImpl,
-#         scope=Scope.REQUEST,
-#         provides=TransactionGateway,
-#     )
-#     transaction_reader = provide(
-#         TransactionReaderImpl,
-#         scope=Scope.REQUEST,
-#         provides=TransactionReader,
-#     )
-
-
-# =============================================================================
-# BalanceLedgerProvider
-# =============================================================================
-
-
-# class BalanceLedgerProvider(Provider):
-#     balance_ledger_gateway = provide(
-#         BalanceLedgerGatewayImpl,
-#         scope=Scope.REQUEST,
-#         provides=BalanceLedgerGateway,
-#     )
-
-
-# =============================================================================
-# AuditLogProvider
-# =============================================================================
-
-
-# class AuditLogProvider(Provider):
-#     audit_log_gateway = provide(
-#         AuditLogGatewayImpl,
-#         scope=Scope.REQUEST,
-#         provides=AuditLogGateway,
-#     )
-#     audit_log_reader = provide(
-#         AuditLogReaderImpl,
-#         scope=Scope.REQUEST,
-#         provides=AuditLogReader,
-#     )
-#     # /staff/audit-logs
-#     list_audit_logs = provide(
-#         ListAuditLogsUseCase,
-#         scope=Scope.REQUEST,
-#     )
-
-
-# =============================================================================
-# Repositories setup
-# =============================================================================
 
 
 class RepositoryProvider(Provider):
@@ -401,15 +205,30 @@ class ApplicationProvider(Provider):
     dish_use_cases = provide(DishUseCases, scope=Scope.REQUEST)
     drink_use_cases = provide(DrinkUseCases, scope=Scope.REQUEST)
     order_use_cases = provide(OrderUseCases, scope=Scope.REQUEST)
-    order_agent = provide(OrderAgent, scope=Scope.REQUEST)
+
+    @provide(scope=Scope.APP)
+    def agent_model(self) -> AgentModel:
+        return QwenAgentModel()
+
+    session_store = provide(
+        InMemorySessionStore,
+        scope=Scope.APP,
+        provides=SessionStore,
+    )
+
+    @provide(scope=Scope.REQUEST)
+    def order_agent(
+        self,
+        dishes: DishUseCases,
+        drinks: DrinkUseCases,
+        orders: OrderUseCases,
+        model: AgentModel,
+        sessions: SessionStore,
+    ) -> OrderAgent:
+        return OrderAgent(dishes, drinks, orders, model, sessions)
 
 
-# =============================================================================
-# Container setup
-# =============================================================================
-
-
-def setup_di() -> AsyncContainer:
+def setup_di(*overrides: Provider) -> AsyncContainer:
     return make_async_container(
         ConfigProvider(),
         SessionProvider(),
@@ -421,5 +240,6 @@ def setup_di() -> AsyncContainer:
         TaskProvider(),
         RepositoryProvider(),
         ApplicationProvider(),
+        *overrides,
         context={Settings: settings},
     )

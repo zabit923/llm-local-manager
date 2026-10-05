@@ -1,18 +1,10 @@
 from typing import Protocol
-from uuid import UUID
 
 from src.domain.models.dish import Dish
+from src.domain.ports.db.repositories.catalog_repository import (
+    CatalogRepository,
+)
 
 
-class DishRepository(Protocol):
-    async def add(self, dish: Dish) -> Dish: ...
-
-    async def update(self, dish: Dish) -> Dish: ...
-
-    async def get_by_id(self, dish_id: UUID) -> Dish | None: ...
-
-    async def list_all(self) -> list[Dish]: ...
-
-    async def list_available(self) -> list[Dish]: ...
-
-    async def delete(self, dish: Dish) -> None: ...
+class DishRepository(CatalogRepository[Dish], Protocol):
+    pass

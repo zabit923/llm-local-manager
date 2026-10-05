@@ -1,11 +1,9 @@
-import logging
 from dataclasses import dataclass
 
+from src.domain.constants import GENERAL_ERROR_MESSAGE
 from src.domain.ports.error.base import ApplicationError
 from src.domain.types.model_id import ModelIdType
 from src.domain.types.model_id_uuid import ModelIdUuidType
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass(eq=False)
@@ -23,14 +21,12 @@ class GeneralCustomError(ApplicationError):
 
     @property
     def message(self):
-        log_text = (
-            f":=GCE| Model={self.model_name}, id={self.model_id}, "
-            f"text={self.text}, error={self.error}"
+        return GENERAL_ERROR_MESSAGE.format(
+            model=self.model_name,
+            id=self.model_id,
+            text=self.text,
+            error=self.error,
         )
-        logger.debug(log_text)
-        if self.log_warn:
-            logger.warning(self.log_warn)
-        return log_text
 
     def __str__(self):
         return self.message

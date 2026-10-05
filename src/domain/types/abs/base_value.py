@@ -10,4 +10,3 @@ class BaseValueObject(ABC):
     @abstractmethod
     def _validate(self) -> None:
         """Check that a value is valid to create this value object."""
-        ...

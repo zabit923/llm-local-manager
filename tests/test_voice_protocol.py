@@ -1,15 +1,17 @@
 """Audio protocol checks without GPU inference or external servers."""
 
+import asyncio
 import io
 import json
-import asyncio
 
 import httpx
 import numpy as np
-import soundfile as sf
 import pytest
+import soundfile as sf
 
-from scripts import voice_server
+from src.entrypoint import voice as voice_server
+
+models = voice_server.create_voice_app().state.speech_models
 
 
 class FrameVad:
@@ -41,34 +43,43 @@ def setup_gateway(monkeypatch):
     monkeypatch.setattr(voice_server.asyncio, "to_thread", inline_inference)
     output = io.BytesIO()
     sf.write(output, np.zeros(2400), 24000, format="WAV")
-    monkeypatch.setattr(voice_server.models, "load", lambda: None)
+    monkeypatch.setattr(models, "load", lambda: None)
     monkeypatch.setattr(
-        voice_server.models, "synthesize", lambda text: output.getvalue(),
+        models,
+        "synthesize",
+        lambda text: output.getvalue(),
     )
 
     def transcribe(samples):
         transcriptions.append(samples)
         return "одну воду"
 
-    monkeypatch.setattr(voice_server.models, "transcribe", transcribe)
+    monkeypatch.setattr(models, "transcribe", transcribe)
     monkeypatch.setattr(voice_server, "load_silero_vad", lambda **kw: None)
     monkeypatch.setattr(voice_server, "VADIterator", FrameVad)
 
     def backend(request):
         body = json.loads(request.content)
         requests.append(body)
-        return httpx.Response(200, json={
-            "session_id": body["session_id"],
-            "reply": "Здравствуйте" if len(requests) == 1 else "Добавила воду",
-            "cart": [], "order_id": None,
-        })
+        return httpx.Response(
+            200,
+            json={
+                "session_id": body["session_id"],
+                "reply": (
+                    "Здравствуйте" if len(requests) == 1 else "Добавила воду"
+                ),
+                "cart": [],
+                "order_id": None,
+            },
+        )
 
     original_client = httpx.AsyncClient
     monkeypatch.setattr(
         voice_server.httpx,
         "AsyncClient",
         lambda **kwargs: original_client(
-            **kwargs, transport=httpx.MockTransport(backend),
+            **kwargs,
+            transport=httpx.MockTransport(backend),
         ),
     )
     return requests, transcriptions
@@ -116,11 +127,11 @@ async def test_pcm_boundaries_and_local_voice_reply(monkeypatch):
     pcm = np.full(4096, 8192, dtype="<i2").tobytes()
     packets = [{"text": json.dumps({"type": "playback_done"})}]
     packets.extend(
-        {"bytes": pcm[offset:offset + 768]}
+        {"bytes": pcm[offset : offset + 768]}
         for offset in range(0, len(pcm), 768)
     )
     ws = MemorySocket(packets)
-    await asyncio.wait_for(voice_server.conversation(ws), timeout=5)
+    await asyncio.wait_for(voice_server.conversation(ws, models), timeout=5)
     events = iter(ws.sent)
     read_reply(events)
     assert next(events)["state"] == "listening"
@@ -129,7 +140,8 @@ async def test_pcm_boundaries_and_local_voice_reply(monkeypatch):
     assert next(events)["text"] == "одну воду"
     read_reply(events)
     assert [request["text"] for request in requests] == [
-        "Здравствуйте", "одну воду",
+        "Здравствуйте",
+        "одну воду",
     ]
     assert len(transcriptions) == 1
     assert len(transcriptions[0]) == 4096
@@ -140,7 +152,7 @@ async def test_pcm_boundaries_and_local_voice_reply(monkeypatch):
 async def test_playback_audio_is_not_recognized_as_customer(monkeypatch):
     requests, transcriptions = setup_gateway(monkeypatch)
     ws = MemorySocket([{"bytes": np.zeros(8192, dtype="<i2").tobytes()}])
-    await asyncio.wait_for(voice_server.conversation(ws), timeout=5)
+    await asyncio.wait_for(voice_server.conversation(ws, models), timeout=5)
     read_reply(iter(ws.sent))
     assert len(requests) == 1
     assert not transcriptions
@@ -149,11 +161,13 @@ async def test_playback_audio_is_not_recognized_as_customer(monkeypatch):
 @pytest.mark.asyncio
 async def test_invalid_pcm_closes_call(monkeypatch):
     setup_gateway(monkeypatch)
-    ws = MemorySocket([
-        {"text": json.dumps({"type": "playback_done"})},
-        {"bytes": b"odd"},
-    ])
-    await asyncio.wait_for(voice_server.conversation(ws), timeout=5)
+    ws = MemorySocket(
+        [
+            {"text": json.dumps({"type": "playback_done"})},
+            {"bytes": b"odd"},
+        ]
+    )
+    await asyncio.wait_for(voice_server.conversation(ws, models), timeout=5)
     assert ws.sent[-1] == {"closed": 1003}
 
 
@@ -162,15 +176,20 @@ async def test_duplicate_playback_done_does_not_reset_speech(monkeypatch):
     _, transcriptions = setup_gateway(monkeypatch)
     control = {"text": json.dumps({"type": "playback_done"})}
     pcm = np.full(512, 8192, dtype="<i2").tobytes()
-    ws = MemorySocket([
-        control, *[{"bytes": pcm} for _ in range(3)], control,
-        *[{"bytes": pcm} for _ in range(5)],
-    ])
-    await asyncio.wait_for(voice_server.conversation(ws), timeout=5)
+    ws = MemorySocket(
+        [
+            control,
+            *[{"bytes": pcm} for _ in range(3)],
+            control,
+            *[{"bytes": pcm} for _ in range(5)],
+        ]
+    )
+    await asyncio.wait_for(voice_server.conversation(ws, models), timeout=5)
     assert len(transcriptions) == 1
     assert len(transcriptions[0]) == 4096
     listening = [
-        event for event in ws.sent
+        event
+        for event in ws.sent
         if isinstance(event, dict) and event.get("state") == "listening"
     ]
     assert len(listening) == 1
@@ -180,5 +199,5 @@ async def test_duplicate_playback_done_does_not_reset_speech(monkeypatch):
 async def test_non_object_control_closes_call(monkeypatch):
     setup_gateway(monkeypatch)
     ws = MemorySocket([{"text": "[]"}])
-    await asyncio.wait_for(voice_server.conversation(ws), timeout=5)
+    await asyncio.wait_for(voice_server.conversation(ws, models), timeout=5)
     assert ws.sent[-1] == {"closed": 1003}

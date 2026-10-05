@@ -18,9 +18,9 @@ class CartLine:
         return f"{self.quantity} {self.name}"
 
     def to_order_item(self) -> OrderItemCreate:
-        field = "dish_id" if self.kind == "dish" else "drink_id"
+        item_field = "dish_id" if self.kind == "dish" else "drink_id"
         return OrderItemCreate(
-            **{field: self.item_id, "quantity": self.quantity}
+            **{item_field: self.item_id, "quantity": self.quantity}
         )
 
 
@@ -46,17 +46,3 @@ class ConversationState:
     @property
     def subtotal_minor(self) -> int:
         return sum(line.unit_price_minor * line.quantity for line in self.lines)
-
-
-class InMemorySessionStore:
-    def __init__(self) -> None:
-        self._sessions: dict[str, ConversationState] = {}
-
-    def get(self, session_id: str) -> ConversationState:
-        return self._sessions.setdefault(session_id, ConversationState())
-
-    def remove(self, session_id: str) -> None:
-        self._sessions.pop(session_id, None)
-
-
-session_store = InMemorySessionStore()

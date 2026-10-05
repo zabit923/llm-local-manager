@@ -1,19 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal, ROUND_HALF_EVEN
+from decimal import ROUND_HALF_EVEN, Decimal
 
 from src.domain.types.abs.base_value import BaseValueObject
 
 
 @dataclass(frozen=True, slots=True)
 class MinorAmount(BaseValueObject):
-    """
-    Денежная сумма в минорных единицах (копейки).
-    Используется для Invoice.amount, Transaction.total, HoldBalance.amount.
-    Никогда не отрицательна. Сравнима только с MinorAmount.
-    """
-
     value: int
 
     def _validate(self) -> None:
@@ -26,8 +20,6 @@ class MinorAmount(BaseValueObject):
             raise ValueError(
                 f"MinorAmount.value must be >= 0, got {self.value}"
             )
-
-    # ---------- Арифметика ----------
 
     def __add__(self, other: MinorAmount) -> MinorAmount:
         if not isinstance(other, MinorAmount):
@@ -46,7 +38,6 @@ class MinorAmount(BaseValueObject):
         return MinorAmount(result)
 
     def __mul__(self, factor: int) -> MinorAmount:
-        """Умножение на целый коэффициент (например, количество единиц)."""
         if not isinstance(factor, int):
             return NotImplemented
         result = self.value * factor
@@ -55,8 +46,6 @@ class MinorAmount(BaseValueObject):
                 f"MinorAmount multiplication result is negative: {result}"
             )
         return MinorAmount(result)
-
-    # ---------- Сравнения ----------
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, MinorAmount):
@@ -83,15 +72,11 @@ class MinorAmount(BaseValueObject):
             return NotImplemented
         return self.value >= other.value
 
-    # ---------- Конвертация ----------
-
     def to_decimal(self) -> Decimal:
         """Копейки → рубли как Decimal. Для отображения и записи в Money."""
         return (Decimal(self.value) / Decimal(100)).quantize(
             Decimal("0.01"), rounding=ROUND_HALF_EVEN
         )
-
-    # ---------- Прочее ----------
 
     def __bool__(self) -> bool:
         return self.value != 0
@@ -111,10 +96,5 @@ class MinorAmount(BaseValueObject):
 
     @classmethod
     def from_decimal(cls, amount: Decimal) -> MinorAmount:
-        """
-        Рубли как Decimal → копейки.
-        Единственная точка конвертации Money → MinorAmount в use_case.
-        Пример: Decimal("100.50") → MinorAmount(10050)
-        """
         result = int((amount * 100).to_integral_value(rounding=ROUND_HALF_EVEN))
         return cls(result)

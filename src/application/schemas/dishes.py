@@ -2,6 +2,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.application.schemas.catalog import CatalogUpdate
+
 
 class DishCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
@@ -10,7 +12,7 @@ class DishCreate(BaseModel):
     is_available: bool = True
 
 
-class DishUpdate(BaseModel):
+class DishUpdate(CatalogUpdate):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     description: str | None = None
     price_minor: int | None = Field(default=None, ge=0)

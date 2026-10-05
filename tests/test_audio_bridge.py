@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 import pytest
 from fastapi import WebSocketDisconnect
 
-from src.presentation.api_v1.views.public import agent
+from src.presentation import websocket_bridge
 
 
 @pytest.mark.asyncio
@@ -35,5 +35,8 @@ async def test_browser_disconnect_during_close(monkeypatch):
     async def connect(*_args, **_kwargs):
         yield Remote()
 
-    monkeypatch.setattr(agent.websockets, "connect", connect)
-    await asyncio.wait_for(agent.audio_agent(Browser()), timeout=2)
+    monkeypatch.setattr(websocket_bridge.websockets, "connect", connect)
+    await asyncio.wait_for(
+        websocket_bridge.AudioBridge().serve(Browser()),
+        timeout=2,
+    )

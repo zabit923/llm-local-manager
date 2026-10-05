@@ -1,6 +1,6 @@
-import pytz
 from typing import ClassVar, Literal
 
+import pytz
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -20,7 +20,7 @@ class RunConfig(BaseModel):
 
 class ProjectName(BaseModel):
     title: str = "Payolin"
-    path: str = ""  # TODO
+    path: str = ""
     access: str = "Access to Payolin."
 
 

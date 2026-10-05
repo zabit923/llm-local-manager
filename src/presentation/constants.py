@@ -1,0 +1,14 @@
+DEFAULT_VOICE_WS_URL = "ws://host.docker.internal:8001/ws"
+VOICE_WS_ENV = "VOICE_WS_URL"
+MAX_AUDIO_MESSAGE_BYTES = 8 * 1024 * 1024
+VOICE_SERVICE_UNAVAILABLE = "Голосовой сервис недоступен. Попробуйте позже."
+STAFF_PATH_PREFIX = "/api/v1/staff/"
+PORTAL_PATH_PREFIX = "/api/v1/portal/"
+DOCS_PATH = "/docs"
+REDOC_PATH = "/redoc"
+OPENAPI_PATH = "/openapi.json"
+MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+CSRF_ORIGIN_ERROR = "csrf_origin_check_failed"
+CSRF_REFERER_ERROR = "csrf_referer_check_failed"
+CSRF_MISSING_ORIGIN_ERROR = "csrf_missing_origin"
+INVALID_AGENT_MESSAGE = "Некорректное сообщение агенту."
